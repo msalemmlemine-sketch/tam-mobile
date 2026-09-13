@@ -42,7 +42,7 @@ class SubscriptionCalculator {
     required double totalPaid,
   }) {
     final remaining = totalDue - totalPaid;
-    return remaining < 0 ? 0 : remaining;
+    return remaining < 0 ? 0.0 : remaining;
   }
 
   /// عدد الأشهر المغطاة فعليًا بالمدفوعات (يُستخدم لعرض "مسدد حتى
