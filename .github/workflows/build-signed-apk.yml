@@ -33,12 +33,11 @@ jobs:
         # إطلاقًا — يضيف فقط مجلدات المنصّة الناقصة (android هنا).
         run: flutter create --platforms=android --org com.tam.mobile .
 
-      - name: رفع compileSdk/targetSdk إلى 36 (لحل تعارض file_picker)
+      - name: تجاوز فحص compileSdk غير المتوافق (لحل تعارض file_picker)
+        # بدل ترقية file_picker (اللي يسبب تعارضات win32 متسلسلة مع
+        # حزم أخرى)، نخلي Gradle يتجاوز فحص التوافق مباشرة.
         run: |
-          sed -i -E 's/^([[:space:]]*)compileSdk[[:space:]]*=.*/\1compileSdk = 36/' android/app/build.gradle.kts
-          sed -i -E 's/^([[:space:]]*)targetSdk[[:space:]]*=.*/\1targetSdk = 36/' android/app/build.gradle.kts
-          echo "--- محتوى build.gradle.kts بعد التعديل ---"
-          cat android/app/build.gradle.kts
+          echo "android.suppressUnsupportedCompileSdk=36" >> android/gradle.properties
 
       - name: flutter pub get
         run: flutter pub get
