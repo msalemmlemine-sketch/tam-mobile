@@ -3,11 +3,17 @@
 Kotlin DSL (android/app/build.gradle.kts، الافتراضي في نسخ Flutter
 الحديثة) والصيغة القديمة Groovy (android/app/build.gradle).
 
+بنية حقن Kotlin DSL هنا تطابق النمط الرسمي الموثّق من Flutter نفسه:
+تحميل key.properties كمتغيّرات في *أعلى الملف* (خارج android{})، لأن
+استدعاء java.util.Properties()/java.io.FileInputStream() بالاسم
+الكامل من *داخل* كتلة android{} يسبب أخطاء "Unresolved reference" مع
+مصرِّف Kotlin Script الخاص بـ Gradle.
+
 لماذا هذا الملف موجود بالأساس: لا نُضمِّن مجلد android/ الكامل في
 المستودع (تجنّبًا لتضارب إصدارات Gradle/Kotlin مع نسخة Flutter التي
 يستخدمها GitHub Actions لاحقًا) — بل نترك `flutter create` يولّده
-طازجًا في كل مرة يعمل فيها الـ workflow، مطابقًا تمامًا لنسخة
-Flutter المثبَّتة، ثم نحقن هذا السكربت إعداد التوقيع بداخله.
+طازجًا في كل مرة يعمل فيها الـ workflow، ثم نحقن هذا السكربت إعداد
+التوقيع بداخله.
 
 يفشل هذا السكربت بوضوح (exit code != 0) إن لم يجد الأنماط المتوقعة،
 بدل إنتاج APK غير موقَّع بصمت.
@@ -19,20 +25,23 @@ import sys
 KTS_PATH = "android/app/build.gradle.kts"
 GROOVY_PATH = "android/app/build.gradle"
 
+KTS_IMPORTS = "import java.util.Properties\nimport java.io.FileInputStream\n\n"
+
+KTS_PROPERTIES_LOADER = """val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+"""
+
 KTS_SIGNING_BLOCK = """
     signingConfigs {
         create("release") {
-            val keystorePropertiesFile = rootProject.file("key.properties")
-            val keystoreProperties = java.util.Properties()
-            if (keystorePropertiesFile.exists()) {
-                keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
-            }
-            if (keystoreProperties["storeFile"] != null) {
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-            }
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+            storePassword = keystoreProperties["storePassword"] as String?
         }
     }
 """
@@ -64,12 +73,21 @@ def inject_kts():
         print("signingConfigs already present in build.gradle.kts — skipping.")
         return
 
+    content = KTS_IMPORTS + content
+
+    match = re.search(r"^android\s*\{", content, flags=re.MULTILINE)
+    if not match:
+        print("ERROR: couldn't find the top-level 'android {' block in "
+              "build.gradle.kts", file=sys.stderr)
+        sys.exit(1)
+    insert_at = match.start()
+    content = content[:insert_at] + KTS_PROPERTIES_LOADER + content[insert_at:]
+
     match = re.search(r"\n(\s*)buildTypes\s*\{", content)
     if not match:
         print("ERROR: couldn't find 'buildTypes {' in build.gradle.kts",
               file=sys.stderr)
         sys.exit(1)
-
     insert_at = match.start()
     content = content[:insert_at] + "\n" + KTS_SIGNING_BLOCK + content[insert_at:]
 
