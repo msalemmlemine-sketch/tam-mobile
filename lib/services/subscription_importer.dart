@@ -190,7 +190,7 @@ class SubscriptionImporter {
   }) async {
     final db = await AppDatabase.instance.database;
     final settings = await _subRepo.getSettings();
-    var monthly = settings['monthly_amount'] ?? 100;
+    var monthly = settings['monthly_amount'] ?? 100.0;
     if (monthly <= 0) monthly = 100;
 
     final batchId = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
