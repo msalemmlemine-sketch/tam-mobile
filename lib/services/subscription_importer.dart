@@ -79,7 +79,7 @@ class SubscriptionImporter {
 
       final members = await _memberRepo.getAllForImportMatching();
       final settings = await _subRepo.getSettings();
-      var cardSetting = settings['card_fee'] ?? 200;
+      var cardSetting = settings['card_fee'] ?? 200.0;
       if (cardSetting <= 0) cardSetting = 200;
 
       final items = <ImportPreviewItem>[];
