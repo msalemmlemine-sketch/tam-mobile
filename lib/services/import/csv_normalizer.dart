@@ -4,8 +4,6 @@
 /// sub_subscription_month_count الموجودة في subscription_import.php
 /// الأصلي، حتى تُعطي نفس نتيجة المطابقة والتحليل بالضبط.
 class CsvNormalizer {
-  /// تطبيع نص عربي: إزالة BOM والمسافات الخفية، توحيد المسافات،
-  /// توحيد الألف/الياء/التاء المربوطة، وتحويل لحروف صغيرة.
   static String norm(String v) {
     var s = v.trim();
     s = s.replaceAll('\uFEFF', '');
@@ -44,8 +42,6 @@ class CsvNormalizer {
     'ملاحظات': 'notes', 'notes': 'notes',
   };
 
-  /// يحوّل اسم عمود CSV إلى مفتاح داخلي موحَّد، أو سلسلة فارغة إن
-  /// لم يُتعرَّف عليه.
   static String headerKey(String header) => _headerMap[norm(header)] ?? '';
 
   static double parseAmount(String v) {
@@ -61,8 +57,6 @@ class CsvNormalizer {
     'سبتمبر': 9, 'اكتوبر': 10, 'أكتوبر': 10, 'نوفمبر': 11, 'ديسمبر': 12,
   };
 
-  /// يستخرج أرقام الأشهر المذكورة صراحة في نص التفاصيل (أسماء
-  /// الأشهر بالعربية، أو صيغة "شهر 3").
   static List<int> extractMonths(String details) {
     final d = norm(details);
     final months = <int>{};
@@ -89,15 +83,12 @@ class CsvNormalizer {
 
   static double cardFeeFromDetails(
       String details, double total, double configuredCard) {
-    final card = configuredCard <= 0 ? 200 : configuredCard;
+    final card = configuredCard <= 0 ? 200.0 : configuredCard;
     final d = norm(details);
     if (d.contains(norm('بطاقة')) && total >= card) return card;
-    return 0;
+    return 0.0;
   }
 
-  /// عدد أشهر الاشتراك التي تمثّلها دفعة واحدة — حسب تفاصيلها
-  /// النصية إن وُجدت، وإلا فحسب قيمتها مقسومة على قيمة الاشتراك
-  /// الشهري (١٢٠٠=سنة كاملة، ٦٠٠=نصف سنة... إلخ).
   static int subscriptionMonthCount(
       String details, double subscriptionAmount, double monthly) {
     final m = monthly <= 0 ? 100 : monthly;
