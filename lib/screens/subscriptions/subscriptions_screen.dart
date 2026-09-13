@@ -167,8 +167,8 @@ class _RecordPaymentScreenState extends State<_RecordPaymentScreen> {
     final settings = await _subRepo.getSettings();
     final subAmount = double.tryParse(_amountCtrl.text) ??
         settings['monthly_amount'] ??
-        0;
-    final cardFee = double.tryParse(_cardFeeCtrl.text) ?? 0;
+        0.0;
+    final cardFee = double.tryParse(_cardFeeCtrl.text) ?? 0.0;
 
     final payment = SubscriptionPayment(
       memberId: _selectedMember!.id!,
