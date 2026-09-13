@@ -29,8 +29,6 @@ class ExportService {
       final data = await rootBundle.load(assetPath);
       return pw.Font.ttf(data);
     } catch (_) {
-      // احتياط دفاعي فقط — الملفان موجودان فعليًا في assets/fonts؛
-      // هذا يمنع تعطل التصدير بالكامل لو حُذف الأصل لاحقًا بالخطأ.
       return null;
     }
   }
@@ -41,17 +39,11 @@ class ExportService {
     required List<List<String>> rows,
   }) async {
     final csv = const ListToCsvConverter().convert([headers, ...rows]);
-    // BOM حتى يفتح إكسل الملف بترميز عربي صحيح مباشرة.
     final bytes = [0xEF, 0xBB, 0xBF, ...csv.codeUnits];
     final file = await _writeTempFile(fileName, bytes);
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], text: fileName),
-    );
+    await Share.shareXFiles([XFile(file.path)], text: fileName);
   }
 
-  /// ينشئ PDF بسيط لجدول بيانات (عنوان + رأس جدول + صفوف)، ثم يفتح
-  /// قائمة المشاركة/الطباعة. يحمّل خطًا عربيًا محليًا من الحزمة
-  /// (assets/fonts) إن وُجد — راجع ملاحظة الخط أعلى الملف.
   Future<void> exportPdfTable({
     required String fileName,
     required String title,
@@ -88,8 +80,6 @@ class ExportService {
 
     final bytes = await doc.save();
     final file = await _writeTempFile(fileName, bytes);
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], text: title),
-    );
+    await Share.shareXFiles([XFile(file.path)], text: title);
   }
 }
