@@ -1,0 +1,56 @@
+name: tam_mobile
+description: >
+  تطبيق أندرويد غير متصل بالإنترنت لإدارة منتسبي نقابة تحالف أساتذة
+  موريتانيا (TAM) — يعتمد بالكامل على قاعدة بيانات SQLite محلية.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # قاعدة البيانات المحلية (بديل MySQL/PHP)
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
+  path_provider: ^2.1.4
+
+  # استيراد/تصدير الملفات (بديل import.php / list_csv.php)
+  file_picker: ^8.1.2
+  csv: ^6.0.0
+  share_plus: ^10.0.2
+  cross_file: ^0.3.4+2
+  archive: ^3.6.1
+  permission_handler: ^11.3.1
+
+  # تصدير التقارير
+  pdf: ^3.11.1
+  printing: ^5.13.3
+  excel: ^4.0.6
+
+  # الأمان (بديل password_hash/session)
+  flutter_secure_storage: ^9.2.2
+  crypto: ^3.0.5
+
+  # واجهة
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  sqflite_common_ffi: ^2.3.4+4
+
+flutter:
+  uses-material-design: true
+  # يُحمَّل الخط العربي لتصدير PDF مباشرة عبر rootBundle (انظر
+  # lib/services/export_service.dart)، فلا حاجة لتعريفه كـ "fonts:"
+  # هنا. فعّلنا فقط تضمين المجلد كأصول عادية:
+  assets:
+    - assets/fonts/
+  # ضع شعار النقابة هنا إن رغبت لاحقًا أيضًا ضمن نفس القائمة أعلاه.

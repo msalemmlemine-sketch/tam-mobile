@@ -1,0 +1,75 @@
+name: بناء APK موقَّع
+
+# يعمل تلقائيًا عند كل push إلى main، أو يدويًا بالضغط على "Run
+# workflow" من تبويب Actions في GitHub — وهذا الأخير هو ما تستخدمه
+# من هاتفك (متصفح أو تطبيق GitHub) دون أي حاجة لحاسوب.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-sign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: سحب الكود
+        uses: actions/checkout@v4
+
+      - name: تثبيت Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: تثبيت Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: توليد مجلد android (يطابق نسخة Flutter الحالية تمامًا)
+        # لا نُخزِّن android/ في المستودع لتفادي تعارض إصدارات
+        # Gradle/Kotlin مع أي تحديث لاحق لـ Flutter. flutter create
+        # على مشروع فيه lib/ وpubspec.yaml موجودان مسبقًا لا يمسّهما
+        # إطلاقًا — يضيف فقط مجلدات المنصّة الناقصة (android هنا).
+        run: flutter create --platforms=android --org com.tam.mobile .
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: فك تشفير مفتاح التوقيع
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+
+      - name: كتابة key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=upload-keystore.jks
+          EOF
+
+      - name: حقن إعداد التوقيع داخل build.gradle
+        run: python3 tools/inject_signing_config.py
+
+      - name: بناء APK موقَّع (release)
+        run: flutter build apk --release
+
+      - name: رفع APK كمُرفق للتشغيل (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tam-mobile-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 90
+
+      - name: نشر إصدار (Release) على GitHub يحوي الـ APK مباشرة
+        # هذا هو أسهل مكان لتنزيل الـ APK من الهاتف: تبويب
+        # "Releases" في صفحة المستودع — رابط ثابت لا يحتاج تسجيل دخول.
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "نسخة تجريبية #${{ github.run_number }}"
+          files: build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
