@@ -33,6 +33,11 @@ jobs:
         # إطلاقًا — يضيف فقط مجلدات المنصّة الناقصة (android هنا).
         run: flutter create --platforms=android --org com.tam.mobile .
 
+      - name: رفع compileSdk/targetSdk إلى 36 (لحل تعارض file_picker)
+        run: |
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' android/app/build.gradle.kts
+          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 36/' android/app/build.gradle.kts
+
       - name: flutter pub get
         run: flutter pub get
 
