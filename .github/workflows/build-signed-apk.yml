@@ -43,8 +43,8 @@ jobs:
 
       - name: flutter pub get
         run: flutter pub get
-        
-- name: توليد أيقونة التطبيق
+
+      - name: توليد أيقونة التطبيق
         run: dart run flutter_launcher_icons
 
       - name: فك تشفير مفتاح التوقيع
