@@ -11,6 +11,8 @@ on:
 jobs:
   build-and-sign:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: سحب الكود
         uses: actions/checkout@v4
