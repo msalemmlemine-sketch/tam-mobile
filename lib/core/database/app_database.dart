@@ -23,7 +23,7 @@ class AppDatabase {
   AppDatabase._internal();
   static final AppDatabase instance = AppDatabase._internal();
 
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
   static const String dbFileName = 'tam.db';
 
   Database? _db;
@@ -143,7 +143,7 @@ class AppDatabase {
     batch.execute('''
       CREATE TABLE subscription_payments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        member_id INTEGER NOT NULL,
+        member_id INTEGER,
         member_name TEXT,
         financial_guide TEXT,
         card_no TEXT,
@@ -312,10 +312,34 @@ class AppDatabase {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // مثال لكيفية إضافة ترقية مستقبلية دون فقدان بيانات المستخدم:
-    // if (oldVersion < 2) {
-    //   await db.execute("ALTER TABLE members ADD COLUMN email TEXT");
-    // }
+    if (oldVersion < 2) {
+      await db.transaction((txn) async {
+        await txn.execute('ALTER TABLE subscription_payments RENAME TO subscription_payments_old');
+        await txn.execute("""CREATE TABLE subscription_payments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          member_id INTEGER,
+          member_name TEXT, financial_guide TEXT, card_no TEXT,
+          payment_year INTEGER NOT NULL, payment_month INTEGER, payment_date TEXT,
+          subscription_amount REAL NOT NULL DEFAULT 0, card_fee REAL NOT NULL DEFAULT 0,
+          total_amount REAL NOT NULL DEFAULT 0, source TEXT, source_name TEXT,
+          matched_by TEXT, direct_to_executive INTEGER NOT NULL DEFAULT 0,
+          import_batch_id TEXT, row_hash TEXT UNIQUE, notes TEXT, created_at TEXT NOT NULL,
+          FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
+        )""");
+        await txn.execute("""INSERT INTO subscription_payments (
+          id, member_id, member_name, financial_guide, card_no, payment_year,
+          payment_month, payment_date, subscription_amount, card_fee, total_amount,
+          source, source_name, matched_by, direct_to_executive, import_batch_id,
+          row_hash, notes, created_at)
+          SELECT id, member_id, member_name, financial_guide, card_no, payment_year,
+          payment_month, payment_date, subscription_amount, card_fee, total_amount,
+          source, source_name, matched_by, direct_to_executive, import_batch_id,
+          row_hash, notes, created_at FROM subscription_payments_old""");
+        await txn.execute('DROP TABLE subscription_payments_old');
+        await txn.execute('CREATE INDEX idx_sp_member ON subscription_payments(member_id)');
+        await txn.execute('CREATE INDEX idx_sp_period ON subscription_payments(payment_year, payment_month)');
+      });
+    }
   }
 
   Future<void> close() async {

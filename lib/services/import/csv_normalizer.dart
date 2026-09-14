@@ -42,7 +42,22 @@ class CsvNormalizer {
     'ملاحظات': 'notes', 'notes': 'notes',
   };
 
+  static const Map<String, String> _memberHeaderMap = {
+    'الاسم': 'name', 'اسم': 'name', 'اسم المنتسب': 'name',
+    'الاسم الكامل': 'name', 'name': 'name',
+    'المقاطعة': 'district', 'الولاية': 'district', 'district': 'district',
+    'المؤسسة': 'institution', 'مكان العمل': 'institution',
+    'institution': 'institution',
+    'الدليل المالي': 'guide', 'الدليل': 'guide', 'guide': 'guide',
+    'رقم البطاقة': 'card_no', 'البطاقة': 'card_no', 'card_no': 'card_no',
+    'الهاتف': 'phone', 'رقم الهاتف': 'phone', 'phone': 'phone',
+    'ملاحظات': 'notes', 'notes': 'notes',
+  };
+
   static String headerKey(String header) => _headerMap[norm(header)] ?? '';
+
+  static String memberHeaderKey(String header) =>
+      _memberHeaderMap[norm(header)] ?? '';
 
   static double parseAmount(String v) {
     var s = v.trim().replaceAll('\u00A0', '').replaceAll(' ', '').replaceAll(',', '');

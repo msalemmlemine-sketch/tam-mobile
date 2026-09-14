@@ -305,13 +305,7 @@ class SubscriptionImporter {
               ].join('|')))
               .toString();
 
-          // memberId=null يعني سجلًا تاريخيًا بلا منتسب مرتبط — لا
-          // يمكن إدراجه في subscription_payments لأن العمود مفتاح
-          // أجنبي إلزامي؛ يُحتسب ضمن historical كما في الأصل، وتبقى
-          // بياناته قابلة للربط لاحقًا بإعادة الاستيراد بعد إنشاء
-          // المنتسب أو تصحيح الاسم.
-          if (memberId == null) continue;
-
+          // memberId=null مسموح به للسجلات التاريخية غير المرتبطة.
           final payment = SubscriptionPayment(
             memberId: memberId,
             memberName: officialName,
@@ -340,7 +334,7 @@ class SubscriptionImporter {
             if (item.directExecCalc) directTotal += amount;
           }
 
-          if (sub > 0 && months.isNotEmpty) {
+          if (memberId != null && sub > 0 && months.isNotEmpty) {
             for (final mm in months) {
               await txn.insert(
                 'subscription_dues',

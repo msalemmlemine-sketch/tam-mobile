@@ -6,6 +6,8 @@ import '../auth/change_password_screen.dart';
 import '../institutions/institutions_list_screen.dart';
 import '../reports/reports_screen.dart';
 import '../settings/backup_screen.dart';
+import '../settings/member_import_screen.dart';
+import '../settings/organization_settings_screen.dart';
 import '../subscriptions/import_screen.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -32,10 +34,24 @@ class MoreScreen extends StatelessWidget {
             ),
           ),
           ListTile(
+            leading: const Icon(Icons.people_alt_outlined),
+            title: const Text('استيراد المنتسبين (CSV)'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MemberImportScreen()),
+            ),
+          ),
+          ListTile(
             leading: const Icon(Icons.upload_file_outlined),
             title: const Text('استيراد بيانات الاشتراكات (CSV)'),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ImportScreen()),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.image_outlined),
+            title: const Text('شعار النقابة'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const OrganizationSettingsScreen()),
             ),
           ),
           ListTile(

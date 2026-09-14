@@ -1,6 +1,6 @@
 class SubscriptionPayment {
   final int? id;
-  final int memberId;
+  final int? memberId;
   final String? memberName;
   final String? financialGuide;
   final String? cardNo;
@@ -21,7 +21,7 @@ class SubscriptionPayment {
 
   const SubscriptionPayment({
     this.id,
-    required this.memberId,
+    this.memberId,
     this.memberName,
     this.financialGuide,
     this.cardNo,
@@ -44,7 +44,7 @@ class SubscriptionPayment {
   factory SubscriptionPayment.fromMap(Map<String, Object?> map) =>
       SubscriptionPayment(
         id: map['id'] as int?,
-        memberId: map['member_id'] as int,
+        memberId: map['member_id'] as int?,
         memberName: map['member_name'] as String?,
         financialGuide: map['financial_guide'] as String?,
         cardNo: map['card_no'] as String?,
