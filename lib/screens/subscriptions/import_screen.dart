@@ -27,14 +27,14 @@ class _ImportScreenState extends State<ImportScreen> {
       type: FileType.custom,
       allowedExtensions: ['csv'],
     );
-    if (picked == null || picked.files.single.path == null) return;
+    if (picked.isEmpty || picked.single.path == null) return;
 
     setState(() {
       _busy = true;
       _result = null;
       _manualOverrides.clear();
     });
-    final analysis = await _importer.analyze(picked.files.single.path!);
+    final analysis = await _importer.analyze(picked.single.path!);
     setState(() {
       _analysis = analysis;
       _busy = false;
