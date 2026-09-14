@@ -23,7 +23,7 @@ dependencies:
   # استيراد/تصدير الملفات (بديل import.php / list_csv.php)
   file_picker: ^12.3.0
   csv: ^6.0.0
-  share_plus: ^10.0.2
+  share_plus: ^13.3.0
   cross_file: ^0.3.4+2
   archive: ^3.6.1
   permission_handler: ^11.3.1
