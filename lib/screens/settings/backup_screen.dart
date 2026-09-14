@@ -26,9 +26,11 @@ class _BackupScreenState extends State<BackupScreen> {
 
     if (!mounted) return;
     if (result.success) {
-      await Share.shareXFiles(
-        [XFile(result.filePath!)],
-        text: 'نسخة احتياطية من سجل منتسبي تام',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(result.filePath!)],
+          text: 'نسخة احتياطية من سجل منتسبي تام',
+        ),
       );
     } else {
       setState(() => _message = 'فشل إنشاء النسخة: ${result.error}');
