@@ -40,8 +40,8 @@ class _BackupScreenState extends State<BackupScreen> {
       type: FileType.any,
       withData: false,
     );
-    if (picked == null || picked.files.single.path == null) return;
-    final path = picked.files.single.path!;
+    if (picked.isEmpty || picked.single.path == null) return;
+    final path = picked.single.path!;
 
     final isValid = await _backupService.isValidSqliteFile(path);
     if (!isValid) {
