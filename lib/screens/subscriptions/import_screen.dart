@@ -23,7 +23,7 @@ class _ImportScreenState extends State<ImportScreen> {
   ImportConfirmResult? _result;
 
   Future<void> _pickAndAnalyze() async {
-    final picked = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv'],
     );
