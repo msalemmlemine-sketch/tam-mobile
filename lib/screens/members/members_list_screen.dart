@@ -63,8 +63,8 @@ class _MembersListScreenState extends State<MembersListScreen> {
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
-            SliverPadding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 0), sliver: SliverToBoxAdapter(child: Card(child: Padding(padding: const EdgeInsets.all(12), child: TextField(controller: _searchController, onChanged: _onSearchChanged, decoration: InputDecoration(hintText: 'ابحث بالاسم أو الدليل أو البطاقة أو الهاتف', prefixIcon: const Icon(Icons.search), suffixIcon: _query.isEmpty ? null : IconButton(onPressed: () { _searchController.clear(); _onSearchChanged(''); }, icon: const Icon(Icons.clear))))))))),
-            if (_total != null) SliverPadding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 4), sliver: SliverToBoxAdapter(child: Text(_query.isEmpty ? 'جميع المنتسبين' : 'نتائج البحث', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant))),
+            SliverPadding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 0), sliver: SliverToBoxAdapter(child: Card(child: Padding(padding: const EdgeInsets.all(12), child: TextField(controller: _searchController, onChanged: _onSearchChanged, decoration: InputDecoration(hintText: 'ابحث بالاسم أو الدليل أو البطاقة أو الهاتف', prefixIcon: const Icon(Icons.search), suffixIcon: _query.isEmpty ? null : IconButton(onPressed: () { _searchController.clear(); _onSearchChanged(''); }, icon: const Icon(Icons.clear)))))))),
+            if (_total != null) SliverPadding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 4), sliver: SliverToBoxAdapter(child: Text(_query.isEmpty ? 'جميع المنتسبين' : 'نتائج البحث', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant)),
             if (_members.isEmpty && !_isLoading)
               const SliverFillRemaining(hasScrollBody: false, child: EmptyState(icon: Icons.people_outline, title: 'لا يوجد منتسبون', subtitle: 'أضف منتسبًا جديدًا أو استورد قائمة CSV.'))
             else
