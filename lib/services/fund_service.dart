@@ -35,7 +35,7 @@ class FundService {
     final startYear = earliest ?? upTo;
 
     final settings = await _subRepo.getSettings();
-    final regionalPct = settings['regional_share_percent'] ?? 30;
+    final regionalPct = settings['regional_share_percent'] ?? 30.0;
 
     final results = <FundYearSummary>[];
     double runningBalance = 0;

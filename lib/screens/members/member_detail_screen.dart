@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/institution.dart';
 import '../../models/member.dart';
+import '../../models/app_role.dart';
+import '../../services/permission_service.dart';
 import '../../models/subscription_payment.dart';
 import '../../repositories/institution_repository.dart';
 import '../../repositories/member_repository.dart';
@@ -74,7 +76,7 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
       appBar: AppBar(
         title: const Text('تفاصيل المنتسب'),
         actions: [
-          IconButton(
+          if (PermissionService.can(Permission.manageMembers)) IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed: () async {
               final data = await _future;
@@ -164,6 +166,35 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                               : null,
                         ),
                       )),
+
+                if (PermissionService.can(Permission.freezeMembers) || PermissionService.can(Permission.deleteMembers)) ...[
+                  const SizedBox(height: 12),
+                  Card(child: Column(children: [
+                    if (PermissionService.can(Permission.freezeMembers)) ListTile(
+                      leading: Icon(m.membershipStatus == 'suspended' ? Icons.lock_open : Icons.lock_outline),
+                      title: Text(m.membershipStatus == 'suspended' ? 'إلغاء تجميد الانتساب' : 'تجميد الانتساب'),
+                      onTap: () async {
+                        final next = m.membershipStatus == 'suspended' ? 'active' : 'suspended';
+                        await _memberRepo.update(m.copyWith(membershipStatus: next, statusDate: DateTime.now().toIso8601String().substring(0,10), updatedAt: DateTime.now().toIso8601String()));
+                        setState(() { _changed = true; _future = _load(); });
+                      },
+                    ),
+                    if (PermissionService.can(Permission.deleteMembers)) ListTile(
+                      leading: const Icon(Icons.delete_outline),
+                      title: const Text('حذف المنتسب'),
+                      onTap: () async {
+                        final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+                          title: const Text('حذف المنتسب؟'),
+                          content: const Text('سيتم الحذف النهائي فقط إذا لم توجد له دفعات مالية. وإلا سيُرفض الحذف حمايةً للسجل المالي.'),
+                          actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('متابعة'))],
+                        ));
+                        if (ok != true) return;
+                        try { await _memberRepo.hardDelete(m.id!); if (mounted) Navigator.pop(context, true); }
+                        catch (_) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر الحذف: قد توجد دفعات مالية مرتبطة بهذا المنتسب'))); }
+                      },
+                    ),
+                  ])),
+                ],
               ],
             );
           },

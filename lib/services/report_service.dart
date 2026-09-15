@@ -45,7 +45,7 @@ class ReportService {
     final refDate = referenceDate ?? DateTime.now();
     final members = await _memberRepo.search(limit: 100000, offset: 0);
     final settings = await _subRepo.getSettings();
-    final monthlyAmount = settings['monthly_amount'] ?? 0;
+    final monthlyAmount = settings['monthly_amount'] ?? 0.0;
     final institutions = await _institutionRepo.getAll();
     final institutionsById = {for (final i in institutions) i.id: i.name};
 

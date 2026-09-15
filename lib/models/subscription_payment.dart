@@ -1,6 +1,6 @@
 class SubscriptionPayment {
   final int? id;
-  final int memberId;
+  final int? memberId;
   final String? memberName;
   final String? financialGuide;
   final String? cardNo;
@@ -12,6 +12,8 @@ class SubscriptionPayment {
   final double totalAmount;
   final String? source;
   final String? sourceName;
+  final String paymentMethod;
+  final String? paymentReference;
   final String? matchedBy;
   final bool directToExecutive;
   final String? importBatchId;
@@ -21,7 +23,7 @@ class SubscriptionPayment {
 
   const SubscriptionPayment({
     this.id,
-    required this.memberId,
+    this.memberId,
     this.memberName,
     this.financialGuide,
     this.cardNo,
@@ -33,6 +35,8 @@ class SubscriptionPayment {
     this.totalAmount = 0,
     this.source,
     this.sourceName,
+    this.paymentMethod = 'cash',
+    this.paymentReference,
     this.matchedBy,
     this.directToExecutive = false,
     this.importBatchId,
@@ -44,7 +48,7 @@ class SubscriptionPayment {
   factory SubscriptionPayment.fromMap(Map<String, Object?> map) =>
       SubscriptionPayment(
         id: map['id'] as int?,
-        memberId: map['member_id'] as int,
+        memberId: map['member_id'] as int?,
         memberName: map['member_name'] as String?,
         financialGuide: map['financial_guide'] as String?,
         cardNo: map['card_no'] as String?,
@@ -57,6 +61,8 @@ class SubscriptionPayment {
         totalAmount: (map['total_amount'] as num?)?.toDouble() ?? 0,
         source: map['source'] as String?,
         sourceName: map['source_name'] as String?,
+        paymentMethod: (map['payment_method'] as String?) ?? 'cash',
+        paymentReference: map['payment_reference'] as String?,
         matchedBy: map['matched_by'] as String?,
         directToExecutive: ((map['direct_to_executive'] as int?) ?? 0) == 1,
         importBatchId: map['import_batch_id'] as String?,
@@ -79,6 +85,8 @@ class SubscriptionPayment {
         'total_amount': totalAmount,
         'source': source,
         'source_name': sourceName,
+        'payment_method': paymentMethod,
+        'payment_reference': paymentReference,
         'matched_by': matchedBy,
         'direct_to_executive': directToExecutive ? 1 : 0,
         'import_batch_id': importBatchId,

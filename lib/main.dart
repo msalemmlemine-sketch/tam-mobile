@@ -3,9 +3,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/theme/app_theme.dart';
 import 'screens/auth_gate.dart';
+import 'services/cloud_service.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await CloudService.initialize();
   runApp(const TamApp());
 }
 

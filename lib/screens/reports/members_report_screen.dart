@@ -58,6 +58,24 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
     );
   }
 
+  Future<void> _exportPdf(List<({Member member, String institutionName})> rows) async {
+    await _exportService.exportPdfTable(
+      fileName: 'تقرير_المنتسبين.pdf',
+      title: 'تقرير المنتسبين',
+      headers: ['الاسم', 'المؤسسة', 'الدليل المالي', 'رقم البطاقة', 'الهاتف', 'الحالة'],
+      rows: rows
+          .map((r) => [
+                r.member.name,
+                r.institutionName,
+                r.member.guide ?? '',
+                r.member.cardNo ?? '',
+                r.member.phone ?? '',
+                r.member.membershipStatus,
+              ])
+          .toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,10 +113,19 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('${rows.length} منتسب'),
-                    IconButton(
-                      icon: const Icon(Icons.table_chart_outlined),
-                      onPressed: () => _exportCsv(rows),
-                      tooltip: 'تصدير CSV',
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          onPressed: () => _exportPdf(rows),
+                          tooltip: 'تصدير PDF',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.table_chart_outlined),
+                          onPressed: () => _exportCsv(rows),
+                          tooltip: 'تصدير CSV',
+                        ),
+                      ],
                     ),
                   ],
                 ),

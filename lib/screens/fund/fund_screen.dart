@@ -74,7 +74,7 @@ class _FundScreenState extends State<FundScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
-                  final amount = double.tryParse(amountCtrl.text) ?? 0;
+                  final amount = double.tryParse(amountCtrl.text) ?? 0.0;
                   if (amount <= 0) return;
                   final expense = RegionalExpense(
                     expenseDate: date.toIso8601String().substring(0, 10),

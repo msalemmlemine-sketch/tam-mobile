@@ -7,6 +7,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
+import '../core/database/app_database.dart';
+
+import '../core/database/app_database.dart';
 
 /// تصدير التقارير كملفات CSV أو PDF قابلة للمشاركة/الطباعة، بدون
 /// أي اتصال بالإنترنت.
@@ -29,8 +32,6 @@ class ExportService {
       final data = await rootBundle.load(assetPath);
       return pw.Font.ttf(data);
     } catch (_) {
-      // احتياط دفاعي فقط — الملفان موجودان فعليًا في assets/fonts؛
-      // هذا يمنع تعطل التصدير بالكامل لو حُذف الأصل لاحقًا بالخطأ.
       return null;
     }
   }
@@ -41,17 +42,11 @@ class ExportService {
     required List<List<String>> rows,
   }) async {
     final csv = const ListToCsvConverter().convert([headers, ...rows]);
-    // BOM حتى يفتح إكسل الملف بترميز عربي صحيح مباشرة.
     final bytes = [0xEF, 0xBB, 0xBF, ...csv.codeUnits];
     final file = await _writeTempFile(fileName, bytes);
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], text: fileName),
-    );
+    await Share.shareXFiles([XFile(file.path)], text: fileName);
   }
 
-  /// ينشئ PDF بسيط لجدول بيانات (عنوان + رأس جدول + صفوف)، ثم يفتح
-  /// قائمة المشاركة/الطباعة. يحمّل خطًا عربيًا محليًا من الحزمة
-  /// (assets/fonts) إن وُجد — راجع ملاحظة الخط أعلى الملف.
   Future<void> exportPdfTable({
     required String fileName,
     required String title,
@@ -61,6 +56,15 @@ class ExportService {
     final doc = pw.Document();
     final regular = await _tryLoadFont('assets/fonts/arabic_regular.ttf');
     final bold = await _tryLoadFont('assets/fonts/arabic_bold.ttf');
+    pw.ImageProvider? logo;
+    try {
+      final db = await AppDatabase.instance.database;
+      final rows = await db.query('settings', where: 'setting_key = ?', whereArgs: ['org_logo_path']);
+      final path = rows.isEmpty ? null : rows.first['setting_value'] as String?;
+      if (path != null && await File(path).exists()) {
+        logo = pw.MemoryImage(await File(path).readAsBytes());
+      }
+    } catch (_) {}
 
     doc.addPage(
       pw.MultiPage(
@@ -69,6 +73,9 @@ class ExportService {
             ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular)
             : null,
         build: (context) => [
+          if (logo != null)
+            pw.Center(child: pw.Image(logo!, width: 70, height: 70)),
+          if (logo != null) pw.Center(child: pw.Image(logo!, width: 70, height: 70)),
           pw.Header(
             level: 0,
             child: pw.Text(title, style: const pw.TextStyle(fontSize: 18)),
@@ -88,8 +95,6 @@ class ExportService {
 
     final bytes = await doc.save();
     final file = await _writeTempFile(fileName, bytes);
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], text: title),
-    );
+    await Share.shareXFiles([XFile(file.path)], text: title);
   }
 }

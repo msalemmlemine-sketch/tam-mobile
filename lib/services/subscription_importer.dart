@@ -12,6 +12,7 @@ import '../models/subscription_payment.dart';
 import '../repositories/member_repository.dart';
 import '../repositories/subscription_repository.dart';
 import 'import/csv_normalizer.dart';
+import 'drive_sync_service.dart';
 
 /// استيراد سجلات اشتراكات قديمة من CSV — منقول من subscription_import.php
 /// مع الحفاظ على نفس خطوتَي "تحليل ومعاينة" ثم "اعتماد الاستيراد"،
@@ -79,7 +80,7 @@ class SubscriptionImporter {
 
       final members = await _memberRepo.getAllForImportMatching();
       final settings = await _subRepo.getSettings();
-      var cardSetting = settings['card_fee'] ?? 200;
+      var cardSetting = settings['card_fee'] ?? 200.0;
       if (cardSetting <= 0) cardSetting = 200;
 
       final items = <ImportPreviewItem>[];
@@ -190,7 +191,7 @@ class SubscriptionImporter {
   }) async {
     final db = await AppDatabase.instance.database;
     final settings = await _subRepo.getSettings();
-    var monthly = settings['monthly_amount'] ?? 100;
+    var monthly = settings['monthly_amount'] ?? 100.0;
     if (monthly <= 0) monthly = 100;
 
     final batchId = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
@@ -305,13 +306,7 @@ class SubscriptionImporter {
               ].join('|')))
               .toString();
 
-          // memberId=null يعني سجلًا تاريخيًا بلا منتسب مرتبط — لا
-          // يمكن إدراجه في subscription_payments لأن العمود مفتاح
-          // أجنبي إلزامي؛ يُحتسب ضمن historical كما في الأصل، وتبقى
-          // بياناته قابلة للربط لاحقًا بإعادة الاستيراد بعد إنشاء
-          // المنتسب أو تصحيح الاسم.
-          if (memberId == null) continue;
-
+          // memberId=null مسموح به للسجلات التاريخية غير المرتبطة.
           final payment = SubscriptionPayment(
             memberId: memberId,
             memberName: officialName,
@@ -340,7 +335,7 @@ class SubscriptionImporter {
             if (item.directExecCalc) directTotal += amount;
           }
 
-          if (sub > 0 && months.isNotEmpty) {
+          if (memberId != null && sub > 0 && months.isNotEmpty) {
             for (final mm in months) {
               await txn.insert(
                 'subscription_dues',
@@ -382,6 +377,10 @@ class SubscriptionImporter {
 
       final unmatchedCount =
           items.where((x) => x.matchType == ImportMatchType.unmatched).length;
+
+      if (added > 0 || historical > 0 || review > 0) {
+        await DriveSyncService().markDirty();
+      }
 
       return ImportConfirmResult(
         success: true,

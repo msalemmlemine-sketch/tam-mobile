@@ -11,6 +11,8 @@ on:
 jobs:
   build-and-sign:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: سحب الكود
         uses: actions/checkout@v4
@@ -33,8 +35,20 @@ jobs:
         # إطلاقًا — يضيف فقط مجلدات المنصّة الناقصة (android هنا).
         run: flutter create --platforms=android --org com.tam.mobile .
 
+      - name: إعداد الإشعارات المجدولة
+        run: python3 tools/configure_notifications_android.py
+
+      - name: تجاوز فحص compileSdk غير المتوافق (لحل تعارض file_picker)
+        # بدل ترقية file_picker (اللي يسبب تعارضات win32 متسلسلة مع
+        # حزم أخرى)، نخلي Gradle يتجاوز فحص التوافق مباشرة.
+        run: |
+          echo "android.suppressUnsupportedCompileSdk=36" >> android/gradle.properties
+
       - name: flutter pub get
         run: flutter pub get
+
+      - name: توليد أيقونة التطبيق
+        run: dart run flutter_launcher_icons
 
       - name: فك تشفير مفتاح التوقيع
         run: |
