@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../core/database/app_database.dart';
+import '../services/drive_sync_service.dart';
 import '../models/district.dart';
 
 class DistrictRepository {
@@ -22,19 +23,25 @@ class DistrictRepository {
 
   Future<int> create(District district) async {
     final db = await _db;
-    return db.insert('districts', district.toMap());
+    final id = await db.insert('districts', district.toMap());
+    await DriveSyncService().markDirty();
+    return id;
   }
 
   Future<int> update(District district) async {
     final db = await _db;
-    return db.update('districts', district.toMap(),
+    final count = await db.update('districts', district.toMap(),
         where: 'id = ?', whereArgs: [district.id]);
+    await DriveSyncService().markDirty();
+    return count;
   }
 
   /// يفشل بخطأ FK إن كانت هناك مؤسسات مرتبطة — سلوك مقصود لمنع
   /// حذف مقاطعة بها بيانات (Soft-guard عبر ON DELETE RESTRICT).
   Future<int> delete(int id) async {
     final db = await _db;
-    return db.delete('districts', where: 'id = ?', whereArgs: [id]);
+    final count = await db.delete('districts', where: 'id = ?', whereArgs: [id]);
+    await DriveSyncService().markDirty();
+    return count;
   }
 }

@@ -2,6 +2,9 @@ import 'package:sqflite/sqflite.dart';
 
 import '../core/database/app_database.dart';
 import '../models/member.dart';
+import '../models/app_role.dart';
+import '../services/permission_service.dart';
+import '../services/drive_sync_service.dart';
 
 class MemberRepository {
   Future<Database> get _db => AppDatabase.instance.database;
@@ -90,45 +93,60 @@ class MemberRepository {
   }
 
   Future<int> create(Member member) async {
+    PermissionService.require(Permission.manageMembers);
     final db = await _db;
-    return db.insert('members', member.toMap());
+    final id = await db.insert('members', member.toMap());
+    await DriveSyncService().markDirty();
+    return id;
   }
 
   Future<int> update(Member member) async {
+    PermissionService.require(Permission.manageMembers);
     final db = await _db;
-    return db.update('members', member.toMap(),
+    final count = await db.update('members', member.toMap(),
         where: 'id = ?', whereArgs: [member.id]);
+    await DriveSyncService().markDirty();
+    return count;
   }
 
   /// حذف ناعم (Soft Delete) — لا نحذف سجل المنتسب فعليًا لأن له
   /// عمليات مالية مرتبطة، بل نؤرشفه فقط، تماشيًا مع اشتراط عدم
   /// الحذف المباشر للسجلات ذات الصلة المالية.
   Future<int> archive(int id, String updatedAt) async {
+    PermissionService.require(Permission.freezeMembers);
     final db = await _db;
-    return db.update(
+    final count = await db.update(
       'members',
       {'is_archived': 1, 'updated_at': updatedAt},
       where: 'id = ?',
       whereArgs: [id],
     );
+    await DriveSyncService().markDirty();
+    return count;
   }
 
   Future<int> unarchive(int id, String updatedAt) async {
+    PermissionService.require(Permission.freezeMembers);
     final db = await _db;
-    return db.update(
+    final count = await db.update(
       'members',
       {'is_archived': 0, 'updated_at': updatedAt},
       where: 'id = ?',
       whereArgs: [id],
     );
+    await DriveSyncService().markDirty();
+    return count;
   }
 
   /// حذف نهائي حقيقي — يُستخدم فقط لمنتسب لا توجد له أي عمليات
   /// مالية مسجَّلة (خطأ إدخال مثلاً)؛ الواجهة تتحقق من هذا الشرط
   /// قبل السماح باستدعائه.
   Future<int> hardDelete(int id) async {
+    PermissionService.require(Permission.deleteMembers);
     final db = await _db;
-    return db.delete('members', where: 'id = ?', whereArgs: [id]);
+    final count = await db.delete('members', where: 'id = ?', whereArgs: [id]);
+    await DriveSyncService().markDirty();
+    return count;
   }
 
   Future<int> countAll({bool includeArchived = false}) async {

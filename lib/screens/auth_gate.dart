@@ -27,6 +27,8 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
   Future<bool> _check() async {
     final hasSession = await _auth.hasActiveSession();
     if (!hasSession) return false;
+    final user = await _auth.currentUser();
+    if (user == null) { await _auth.logout(); return false; }
     final expired = await _auth.isSessionExpired();
     if (expired) {
       await _auth.logout();

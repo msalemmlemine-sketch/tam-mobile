@@ -11,6 +11,11 @@ void main() {
   });
 
   group('CsvNormalizer.headerKey', () {
+    test('يتعرف على صيغ الأعمدة بعد تطبيع التاء المربوطة', () {
+      expect(CsvNormalizer.memberHeaderKey('المقاطعة'), 'district');
+      expect(CsvNormalizer.memberHeaderKey('المؤسسة'), 'institution');
+    });
+
     test('يتعرف على أعمدة عربية وإنجليزية متعددة لنفس الحقل', () {
       expect(CsvNormalizer.headerKey('الاسم الكامل'), 'name');
       expect(CsvNormalizer.headerKey('Name'), 'name');

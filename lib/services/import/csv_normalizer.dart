@@ -20,7 +20,7 @@ class CsvNormalizer {
   }
 
   static const Map<String, String> _headerMap = {
-    'الاسم': 'name', 'اسم': 'name', 'اسم المنتسب': 'name',
+    'الاسم': 'name', 'الإسم': 'name', 'اسم': 'name', 'اسم المنتسب': 'name',
     'الاسم الكامل': 'name', 'name': 'name',
     'الدليل المالي': 'guide', 'الدليل': 'guide', 'guide': 'guide',
     'financial guide': 'guide',
@@ -43,10 +43,10 @@ class CsvNormalizer {
   };
 
   static const Map<String, String> _memberHeaderMap = {
-    'الاسم': 'name', 'اسم': 'name', 'اسم المنتسب': 'name',
+    'الاسم': 'name', 'الإسم': 'name', 'اسم': 'name', 'اسم المنتسب': 'name',
     'الاسم الكامل': 'name', 'name': 'name',
-    'المقاطعة': 'district', 'الولاية': 'district', 'district': 'district',
-    'المؤسسة': 'institution', 'مكان العمل': 'institution',
+    'المقاطعة': 'district', 'المقاطعه': 'district', 'الولاية': 'district', 'الولايه': 'district', 'district': 'district',
+    'المؤسسة': 'institution', 'الموسسة': 'institution', 'الموسسه': 'institution', 'مكان العمل': 'institution',
     'institution': 'institution',
     'الدليل المالي': 'guide', 'الدليل': 'guide', 'guide': 'guide',
     'رقم البطاقة': 'card_no', 'البطاقة': 'card_no', 'card_no': 'card_no',

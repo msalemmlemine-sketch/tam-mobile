@@ -4,6 +4,7 @@ import 'package:csv/csv.dart';
 import 'package:sqflite/sqflite.dart';
 import '../core/database/app_database.dart';
 import 'import/csv_normalizer.dart';
+import 'drive_sync_service.dart';
 
 class MemberImportResult {
   final bool success; final int added; final int skipped; final int errors;
@@ -38,6 +39,7 @@ class MemberImporter {
           added++;
         }
       });
+      if (added > 0) await DriveSyncService().markDirty();
       return MemberImportResult(success:errors==0,added:added,skipped:skipped,errors:errors,messages:messages,error:errors==0?null:'تم الاستيراد مع وجود $errors أخطاء.');
     } catch(e){return MemberImportResult(success:false,error:e.toString());}
   }

@@ -1,33 +1,16 @@
-# ==== أدوات Flutter/Dart ====
 .dart_tool/
 .packages
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
 .pub/
 build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.idea/
+.vscode/
 *.iml
-*.ipr
-*.iws
-
-# ==== مجلدات المنصّات المولَّدة تلقائيًا ====
-# لا نخزّنها في المستودع: يعيد GitHub Actions توليدها في كل مرة عبر
-# `flutter create --platforms=android .` لضمان مطابقتها التامة
-# لنسخة Flutter المستخدمة في البناء (تجنّبًا لتعارض إصدارات Gradle).
-# إن رغبت لاحقًا بتطوير محلي على حاسوب حقيقي، شغّل نفس الأمر عندك
-# ثم يمكنك حذف هذين السطرين إن أردت تثبيت نسخة android/ios محددة.
-/android/
-/ios/
-/linux/
-/macos/
-/windows/
-/web/
-
-# ==== أسرار التوقيع — لا تُرفع لأي مستودع عام أو خاص إطلاقًا ====
-**/android/key.properties
+android/.gradle/
+android/local.properties
+android/key.properties
 *.jks
 *.keystore
-
-# ==== ملفات النظام ====
-.DS_Store
-Thumbs.db
+.env
+.env.*
