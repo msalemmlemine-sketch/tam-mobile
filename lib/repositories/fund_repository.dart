@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../core/database/app_database.dart';
+import '../services/drive_sync_service.dart';
 import '../models/regional_expense.dart';
 
 class FundRepository {
@@ -8,18 +9,24 @@ class FundRepository {
 
   Future<int> addExpense(RegionalExpense expense) async {
     final db = await _db;
-    return db.insert('regional_expenses', expense.toMap());
+    final id = await db.insert('regional_expenses', expense.toMap());
+    await DriveSyncService().markDirty();
+    return id;
   }
 
   Future<int> updateExpense(RegionalExpense expense) async {
     final db = await _db;
-    return db.update('regional_expenses', expense.toMap(),
+    final count = await db.update('regional_expenses', expense.toMap(),
         where: 'id = ?', whereArgs: [expense.id]);
+    await DriveSyncService().markDirty();
+    return count;
   }
 
   Future<int> deleteExpense(int id) async {
     final db = await _db;
-    return db.delete('regional_expenses', where: 'id = ?', whereArgs: [id]);
+    final count = await db.delete('regional_expenses', where: 'id = ?', whereArgs: [id]);
+    await DriveSyncService().markDirty();
+    return count;
   }
 
   Future<List<RegionalExpense>> expensesForYear(int year) async {
@@ -86,5 +93,6 @@ class FundRepository {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    await DriveSyncService().markDirty();
   }
 }

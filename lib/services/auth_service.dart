@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 
 import '../repositories/user_repository.dart';
 import 'secure_kv_store.dart';
+import 'permission_service.dart';
 
 enum LoginResult { success, wrongPassword, locked, mustChangePassword }
 
@@ -66,6 +67,7 @@ class AuthService {
 
     await _users.resetFailedAttempts(user.id);
     await _storage.write(_sessionKey, user.id.toString());
+    PermissionService.currentUser = user;
     await _touchActivity();
 
     if (user.mustChangePassword) {
@@ -82,8 +84,18 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    PermissionService.currentUser = null;
     await _storage.delete(_sessionKey);
     await _storage.delete(_lastActivityKey);
+  }
+
+  Future<AppUser?> currentUser() async {
+    final id = await _storage.read(_sessionKey);
+    final userId = int.tryParse(id ?? '');
+    if (userId == null) return null;
+    final user = await _users.getById(userId);
+    PermissionService.currentUser = user;
+    return user;
   }
 
   Future<bool> hasActiveSession() async {

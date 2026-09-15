@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../models/member.dart';
+import '../../models/app_role.dart';
+import '../../services/permission_service.dart';
 import '../../repositories/member_repository.dart';
+import '../../widgets/app_widgets.dart';
 import 'member_detail_screen.dart';
 import 'member_form_screen.dart';
 
 class MembersListScreen extends StatefulWidget {
   const MembersListScreen({super.key});
-
   @override
   State<MembersListScreen> createState() => _MembersListScreenState();
 }
@@ -16,127 +18,65 @@ class _MembersListScreenState extends State<MembersListScreen> {
   final _repo = MemberRepository();
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
-
   static const _pageSize = 30;
-
   final List<Member> _members = [];
-  bool _isLoading = false;
-  bool _hasMore = true;
+  bool _isLoading = false, _hasMore = true;
   String _query = '';
+  int? _total;
 
   @override
   void initState() {
     super.initState();
     _loadMore();
-    _scrollController.addListener(() {
-      if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 200) {
-        _loadMore();
-      }
-    });
+    _scrollController.addListener(() { if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 250) _loadMore(); });
   }
 
   Future<void> _loadMore() async {
     if (_isLoading || !_hasMore) return;
     setState(() => _isLoading = true);
-    final results = await _repo.search(
-      query: _query,
-      limit: _pageSize,
-      offset: _members.length,
-    );
-    setState(() {
-      _members.addAll(results);
-      _hasMore = results.length == _pageSize;
-      _isLoading = false;
-    });
+    try {
+      final results = await _repo.search(query: _query, limit: _pageSize, offset: _members.length);
+      final total = await _repo.countSearch(query: _query);
+      if (!mounted) return;
+      setState(() { _members.addAll(results); _total = total; _hasMore = _members.length < total; _isLoading = false; });
+    } catch (_) { if (mounted) setState(() => _isLoading = false); }
   }
 
   void _onSearchChanged(String value) {
-    setState(() {
-      _query = value;
-      _members.clear();
-      _hasMore = true;
-    });
+    setState(() { _query = value; _members.clear(); _hasMore = true; _total = null; });
     _loadMore();
   }
 
+  Future<void> _refresh() async { setState(() { _members.clear(); _hasMore = true; _total = null; }); await _loadMore(); }
   @override
-  void dispose() {
-    _searchController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
+  void dispose() { _searchController.dispose(); _scrollController.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final canManage = PermissionService.can(Permission.manageMembers);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('المنتسبون'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: const InputDecoration(
-                hintText: 'بحث بالاسم، الدليل، رقم البطاقة أو الهاتف',
-                prefixIcon: Icon(Icons.search),
-                isDense: true,
-              ),
-            ),
-          ),
+      appBar: AppBar(title: const Text('المنتسبون'), actions: [if (_total != null) Padding(padding: const EdgeInsetsDirectional.only(end: 16), child: Center(child: Text('$_total', style: Theme.of(context).textTheme.titleMedium))) ]),
+      floatingActionButton: canManage ? FloatingActionButton.extended(onPressed: () async { final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const MemberFormScreen())); if (saved == true) _onSearchChanged(_query); }, icon: const Icon(Icons.person_add_alt_1), label: const Text('إضافة منتسب')) : null,
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            SliverPadding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 0), sliver: SliverToBoxAdapter(child: Card(child: Padding(padding: const EdgeInsets.all(12), child: TextField(controller: _searchController, onChanged: _onSearchChanged, decoration: InputDecoration(hintText: 'ابحث بالاسم أو الدليل أو البطاقة أو الهاتف', prefixIcon: const Icon(Icons.search), suffixIcon: _query.isEmpty ? null : IconButton(onPressed: () { _searchController.clear(); _onSearchChanged(''); }, icon: const Icon(Icons.clear)))))))),
+            if (_total != null) SliverPadding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 4), sliver: SliverToBoxAdapter(child: Text(_query.isEmpty ? 'جميع المنتسبين' : 'نتائج البحث', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant)))),
+            if (_members.isEmpty && !_isLoading)
+              const SliverFillRemaining(hasScrollBody: false, child: EmptyState(icon: Icons.people_outline, title: 'لا يوجد منتسبون', subtitle: 'أضف منتسبًا جديدًا أو استورد قائمة CSV.'))
+            else
+              SliverPadding(padding: const EdgeInsets.fromLTRB(12, 4, 12, 100), sliver: SliverList(delegate: SliverChildBuilderDelegate((context, index) {
+                if (index == _members.length) return _hasMore ? const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator())) : const SizedBox(height: 20);
+                final member = _members[index];
+                final initial = member.name.trim().isEmpty ? '?' : member.name.trim().characters.first;
+                return Card(child: InkWell(borderRadius: BorderRadius.circular(20), onTap: () async { final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => MemberDetailScreen(memberId: member.id!))); if (changed == true) _onSearchChanged(_query); }, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), child: Row(children: [CircleAvatar(radius: 24, backgroundColor: scheme.primaryContainer, foregroundColor: scheme.onPrimaryContainer, child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w800))), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(member.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text([if (member.guide?.isNotEmpty == true) 'الدليل ${member.guide}', if (member.phone?.isNotEmpty == true) member.phone!].join(' • '), maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall)])), const SizedBox(width: 8), StatusChip(member.membershipStatus)]))));
+              }, childCount: _members.length + 1))),
+          ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final saved = await Navigator.of(context).push<bool>(
-            MaterialPageRoute(builder: (_) => const MemberFormScreen()),
-          );
-          if (saved == true) _onSearchChanged(_query);
-        },
-        child: const Icon(Icons.add),
-      ),
-      body: _members.isEmpty && !_isLoading
-          ? const Center(child: Text('لا يوجد منتسبون بعد'))
-          : ListView.builder(
-              controller: _scrollController,
-              itemCount: _members.length + 1,
-              itemBuilder: (context, index) {
-                if (index == _members.length) {
-                  return _hasMore
-                      ? const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      : const SizedBox.shrink();
-                }
-                final member = _members[index];
-                return ListTile(
-                  leading:
-                      CircleAvatar(child: Text(member.name.characters.first)),
-                  title: Text(member.name),
-                  subtitle: Text([
-                    if (member.guide != null && member.guide!.isNotEmpty)
-                      'الدليل: ${member.guide}',
-                    if (member.phone != null && member.phone!.isNotEmpty)
-                      member.phone!,
-                  ].join(' • ')),
-                  trailing: member.membershipStatus != 'active'
-                      ? const Icon(Icons.info_outline, color: Colors.orange)
-                      : null,
-                  onTap: () async {
-                    final changed = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            MemberDetailScreen(memberId: member.id!),
-                      ),
-                    );
-                    if (changed == true) _onSearchChanged(_query);
-                  },
-                );
-              },
-            ),
     );
   }
 }

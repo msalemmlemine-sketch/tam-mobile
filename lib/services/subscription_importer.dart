@@ -12,6 +12,7 @@ import '../models/subscription_payment.dart';
 import '../repositories/member_repository.dart';
 import '../repositories/subscription_repository.dart';
 import 'import/csv_normalizer.dart';
+import 'drive_sync_service.dart';
 
 /// استيراد سجلات اشتراكات قديمة من CSV — منقول من subscription_import.php
 /// مع الحفاظ على نفس خطوتَي "تحليل ومعاينة" ثم "اعتماد الاستيراد"،
@@ -376,6 +377,10 @@ class SubscriptionImporter {
 
       final unmatchedCount =
           items.where((x) => x.matchType == ImportMatchType.unmatched).length;
+
+      if (added > 0 || historical > 0 || review > 0) {
+        await DriveSyncService().markDirty();
+      }
 
       return ImportConfirmResult(
         success: true,

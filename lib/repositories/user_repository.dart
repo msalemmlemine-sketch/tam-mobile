@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../core/database/app_database.dart';
+import '../models/app_role.dart';
 
 class AppUser {
   final int id;
@@ -8,6 +9,7 @@ class AppUser {
   final String passwordHash;
   final String passwordSalt;
   final String displayName;
+  final AppRole role;
   final bool mustChangePassword;
   final int failedAttempts;
   final String? lockedUntil;
@@ -18,6 +20,7 @@ class AppUser {
     required this.passwordHash,
     required this.passwordSalt,
     required this.displayName,
+    this.role = AppRole.organizationSecretary,
     required this.mustChangePassword,
     required this.failedAttempts,
     this.lockedUntil,
@@ -29,6 +32,7 @@ class AppUser {
         passwordHash: map['password_hash'] as String,
         passwordSalt: map['password_salt'] as String,
         displayName: map['display_name'] as String,
+        role: AppRoleX.fromKey(map['role'] as String?),
         mustChangePassword: (map['must_change_password'] as int) == 1,
         failedAttempts: map['failed_attempts'] as int? ?? 0,
         lockedUntil: map['locked_until'] as String?,
@@ -42,6 +46,14 @@ class UserRepository {
     final db = await _db;
     final rows =
         await db.query('users', where: 'username = ?', whereArgs: [username]);
+    if (rows.isEmpty) return null;
+    return AppUser.fromMap(rows.first);
+  }
+
+
+  Future<AppUser?> getById(int id) async {
+    final db = await _db;
+    final rows = await db.query('users', where: 'id = ?', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return AppUser.fromMap(rows.first);
   }
