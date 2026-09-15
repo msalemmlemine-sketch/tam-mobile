@@ -5,7 +5,7 @@ name: بناء APK موقَّع
 # من هاتفك (متصفح أو تطبيق GitHub) دون أي حاجة لحاسوب.
 on:
   push:
-    branches: [main]
+    branches: [main, tam-integration]
   workflow_dispatch: {}
 
 jobs:
