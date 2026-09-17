@@ -116,20 +116,20 @@ class _OverdueReportScreenState
   Future<void> _exportCsv(
     List<MemberDebtRow> rows,
   ) async {
+    final headers = <String>[
+      'المقاطعة',
+      'المؤسسة',
+      'الاسم',
+      'المستحق',
+      'المدفوع',
+      'المتبقي',
+      'الهاتف',
+      'رقم البطاقة',
+    ];
+
     final grouped = _groupByDistrict(rows);
 
-    final data = <List<String>>[
-      [
-        'المقاطعة',
-        'المؤسسة',
-        'الاسم',
-        'المستحق',
-        'المدفوع',
-        'المتبقي',
-        'الهاتف',
-        'رقم البطاقة',
-      ],
-    ];
+    final data = <List<String>>[];
 
     for (final district in grouped.entries) {
       for (final row in district.value) {
@@ -150,6 +150,7 @@ class _OverdueReportScreenState
 
     await _exportService.exportCsv(
       fileName: 'rapport_des_impayes_2026.csv',
+      headers: headers,
       rows: data,
     );
   }
