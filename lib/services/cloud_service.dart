@@ -27,6 +27,10 @@ class CloudService {
   final http.Client _client;
 
   static bool get enabled => CloudConfig.enabled;
+  /// نقطة تهيئة تُستدعى من main.dart عند إقلاع التطبيق — لا حاجة
+  /// فعلية لتهيئة مسبقة لعميل REST خفيف كهذا، لكنها أُبقيت لتوافق
+  /// main.dart الحالي دون تعديله.
+  static Future<void> initialize() async {}
 
   Uri _restUri(String table, {Map<String, String>? query}) {
     final base = CloudConfig.url.endsWith('/')
