@@ -538,23 +538,25 @@ class ExportService {
       decoration: const pw.BoxDecoration(
         color: PdfColor.fromInt(0xFFF0F0F0),
       ),
-      child: pw.Row(
+      child: pw.Directionality(
         textDirection: pw.TextDirection.ltr,
-        children: [
-          for (final cell in totalsRow)
-            pw.Expanded(
-              child: pw.Text(
-                cell,
-                textDirection: pw.TextDirection.rtl,
-                textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(
-                  font: bold ?? regular,
-                  fontSize: 9,
-                  fontWeight: pw.FontWeight.bold,
+        child: pw.Row(
+          children: [
+            for (final cell in totalsRow)
+              pw.Expanded(
+                child: pw.Text(
+                  cell,
+                  textDirection: pw.TextDirection.rtl,
+                  textAlign: pw.TextAlign.center,
+                  style: pw.TextStyle(
+                    font: bold ?? regular,
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -893,41 +895,43 @@ class ExportService {
                 ),
               ),
             ),
-            child: pw.Row(
+            child: pw.Directionality(
               textDirection: pw.TextDirection.ltr,
-              mainAxisAlignment:
-                  pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'صفحة ${context.pageNumber} من ${context.pagesCount}',
-                  textDirection: pw.TextDirection.rtl,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
+              child: pw.Row(
+                mainAxisAlignment:
+                    pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'صفحة ${context.pageNumber} من ${context.pagesCount}',
+                    textDirection: pw.TextDirection.rtl,
+                    style: pw.TextStyle(
+                      font: regular,
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
                   ),
-                ),
 
-                pw.Text(
-                  organization.shortName,
-                  textDirection: pw.TextDirection.rtl,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
+                  pw.Text(
+                    organization.shortName,
+                    textDirection: pw.TextDirection.rtl,
+                    style: pw.TextStyle(
+                      font: regular,
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
                   ),
-                ),
 
-                pw.Text(
-                  generatedAt,
-                  textDirection: pw.TextDirection.ltr,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
+                  pw.Text(
+                    generatedAt,
+                    textDirection: pw.TextDirection.ltr,
+                    style: pw.TextStyle(
+                      font: regular,
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
