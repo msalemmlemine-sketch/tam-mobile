@@ -15,7 +15,7 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
   final ReportService _reportService = ReportService();
   final ExportService _exportService = ExportService();
 
-  late Future<List<({Member member, String institutionName})>> _future;
+  late Future<List<MemberReportRow>> _future;
 
   int? _institutionId;
   String _search = '';
@@ -34,8 +34,8 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
     });
   }
 
-  List<({Member member, String institutionName})> _filter(
-    List<({Member member, String institutionName})> rows,
+  List<MemberReportRow> _filter(
+    List<MemberReportRow> rows,
   ) {
     final q = _search.trim().toLowerCase();
 
@@ -52,11 +52,10 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
     }).toList();
   }
 
-  Map<String, List<({Member member, String institutionName})>> _groupByInstitution(
-    List<({Member member, String institutionName})> rows,
+  Map<String, List<MemberReportRow>> _groupByInstitution(
+    List<MemberReportRow> rows,
   ) {
-    final grouped =
-        <String, List<({Member member, String institutionName})>>{};
+    final grouped = <String, List<MemberReportRow>>{};
 
     for (final row in rows) {
       grouped.putIfAbsent(row.institutionName, () => []).add(row);
@@ -69,15 +68,22 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
   }
 
   Future<void> _exportCsv(
-    List<({Member member, String institutionName})> rows,
+    List<MemberReportRow> rows,
   ) async {
     if (rows.isEmpty) return;
 
+    final headers = <String>[
+      'المؤسسة',
+      'الاسم',
+      'الدليل المالي',
+      'رقم البطاقة',
+      'الهاتف',
+      'الحالة',
+    ];
+
     final grouped = _groupByInstitution(rows);
 
-    final data = <List<String>>[
-      ['المؤسسة', 'الاسم', 'الدليل المالي', 'رقم البطاقة', 'الهاتف', 'الحالة'],
-    ];
+    final data = <List<String>>[];
 
     for (final entry in grouped.entries) {
       for (final row in entry.value) {
@@ -96,12 +102,13 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
 
     await _exportService.exportCsv(
       fileName: 'liste_des_adherents_par_institution.csv',
+      headers: headers,
       rows: data,
     );
   }
 
   Future<void> _exportPdf(
-    List<({Member member, String institutionName})> rows,
+    List<MemberReportRow> rows,
   ) async {
     if (rows.isEmpty) return;
 
@@ -202,7 +209,7 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
 
   Widget _institutionSection(
     String institution,
-    List<({Member member, String institutionName})> rows,
+    List<MemberReportRow> rows,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -280,7 +287,7 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
             ),
           ],
         ),
-        body: FutureBuilder<List<({Member member, String institutionName})>>(
+        body: FutureBuilder<List<MemberReportRow>>(
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
