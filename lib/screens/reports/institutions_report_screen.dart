@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 
-import '../../models/member.dart';
+import '../../models/institution.dart';
 import '../../services/report_service.dart';
 import '../../services/export_service.dart';
 
-class MembersReportScreen extends StatefulWidget {
-  const MembersReportScreen({super.key});
+class InstitutionsReportScreen extends StatefulWidget {
+  const InstitutionsReportScreen({super.key});
 
   @override
-  State<MembersReportScreen> createState() => _MembersReportScreenState();
+  State<InstitutionsReportScreen> createState() =>
+      _InstitutionsReportScreenState();
 }
 
-class _MembersReportScreenState extends State<MembersReportScreen> {
+class _InstitutionsReportScreenState
+    extends State<InstitutionsReportScreen> {
   final ReportService _reportService = ReportService();
   final ExportService _exportService = ExportService();
 
-  late Future<List<MemberReportRow>> _future;
+  late Future<InstitutionsReport> _future;
 
-  int? _institutionId;
   String _search = '';
 
   @override
@@ -28,149 +29,104 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
 
   void _load() {
     setState(() {
-      _future = _reportService.membersReport(
-        institutionId: _institutionId,
-      );
+      _future = _reportService.institutionsReport();
     });
   }
 
-  List<MemberReportRow> _filter(
-    List<MemberReportRow> rows,
+  List<InstitutionReportRow> _filter(
+    List<InstitutionReportRow> rows,
   ) {
-    final q = _search.trim().toLowerCase();
+    final query = _search.trim().toLowerCase();
 
-    if (q.isEmpty) return rows;
+    if (query.isEmpty) {
+      return rows;
+    }
 
     return rows.where((row) {
-      final member = row.member;
-
-      return member.name.toLowerCase().contains(q) ||
-          row.institutionName.toLowerCase().contains(q) ||
-          (member.guide ?? '').toLowerCase().contains(q) ||
-          (member.cardNo ?? '').toLowerCase().contains(q) ||
-          (member.phone ?? '').toLowerCase().contains(q);
+      return row.institution.name.toLowerCase().contains(query) ||
+          row.districtName.toLowerCase().contains(query);
     }).toList();
   }
 
-  Map<String, List<MemberReportRow>> _groupByInstitution(
-    List<MemberReportRow> rows,
-  ) {
-    final grouped = <String, List<MemberReportRow>>{};
-
-    for (final row in rows) {
-      grouped.putIfAbsent(row.institutionName, () => []).add(row);
-    }
-
-    final entries = grouped.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-
-    return Map.fromEntries(entries);
-  }
-
   Future<void> _exportCsv(
-    List<MemberReportRow> rows,
+    List<InstitutionReportRow> rows,
   ) async {
-    if (rows.isEmpty) return;
-
     final headers = <String>[
+      'المقاطعة',
       'المؤسسة',
-      'الاسم',
-      'الدليل المالي',
-      'رقم البطاقة',
-      'الهاتف',
-      'الحالة',
+      'عدد الموظفين',
+      'منتسبو TAM',
+      'النسبة',
+      'SIPES',
+      'SNES',
+      'نقابات أخرى',
+      'غير منخرطين',
     ];
-
-    final grouped = _groupByInstitution(rows);
 
     final data = <List<String>>[];
 
-    for (final entry in grouped.entries) {
-      for (final row in entry.value) {
-        final m = row.member;
-
-        data.add([
-          entry.key,
-          m.name,
-          m.guide ?? '',
-          m.cardNo ?? '',
-          m.phone ?? '',
-          m.membershipStatus,
-        ]);
-      }
+    for (final row in rows) {
+      data.add([
+        row.districtName,
+        row.institution.name,
+        '${row.institution.totalStaff}',
+        '${row.tamMembers}',
+        _percentage(row.tamPercentage),
+        '${row.institution.sipesMembers}',
+        '${row.institution.snesMembers}',
+        '${row.institution.otherUnionMembers}',
+        '${row.institution.nonUnionStaff}',
+      ]);
     }
 
     await _exportService.exportCsv(
-      fileName: 'liste_des_adherents_par_institution.csv',
+      fileName: 'rapport_des_institutions.csv',
       headers: headers,
       rows: data,
     );
   }
 
   Future<void> _exportPdf(
-    List<MemberReportRow> rows,
+    List<InstitutionReportRow> rows,
   ) async {
-    if (rows.isEmpty) return;
-
-    final grouped = _groupByInstitution(rows);
-
-    final headers = [
-      'الاسم',
-      'الدليل المالي',
-      'رقم البطاقة',
-      'الهاتف',
-      'الحالة',
-    ];
-
-    final sections = <Map<String, dynamic>>[];
-
-    for (final entry in grouped.entries) {
-      sections.add({
-        'title': entry.key,
-        'rows': entry.value.map((row) {
-          final m = row.member;
-
-          return [
-            m.name,
-            m.guide ?? '—',
-            m.cardNo ?? '—',
-            m.phone ?? '—',
-            _statusLabel(m.membershipStatus),
-          ];
-        }).toList(),
-      });
-    }
+    final data = rows.map((row) {
+      return [
+        row.institution.name,
+        row.districtName,
+        '${row.institution.totalStaff}',
+        '${row.tamMembers}',
+        _percentage(row.tamPercentage),
+        '${row.institution.sipesMembers}',
+        '${row.institution.snesMembers}',
+        '${row.institution.otherUnionMembers}',
+        '${row.institution.nonUnionStaff}',
+      ];
+    }).toList();
 
     await _exportService.exportPdfTable(
-      fileName: 'liste_des_adherents_par_institution.pdf',
-      title: 'لائحة المنتسبين',
-      headers: headers,
-      rows: rows.map((row) {
-        final m = row.member;
-
-        return [
-          m.name,
-          row.institutionName,
-          m.guide ?? '—',
-          m.cardNo ?? '—',
-          m.phone ?? '—',
-          _statusLabel(m.membershipStatus),
-        ];
-      }).toList(),
+      fileName: 'rapport_des_institutions.pdf',
+      title: 'تقرير المؤسسات والمنتسبين',
+      headers: [
+        'المؤسسة',
+        'المقاطعة',
+        'إجمالي الموظفين',
+        'منتسبو TAM',
+        'النسبة',
+        'SIPES',
+        'SNES',
+        'نقابات أخرى',
+        'غير منخرطين',
+      ],
+      rows: data,
     );
   }
 
-  String _statusLabel(String status) {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'نشط';
-      case 'inactive':
-        return 'غير نشط';
-      case 'suspended':
-        return 'موقوف';
-      default:
-        return status;
+  String _percentage(double? value) {
+    if (value == null) {
+      return '—';
     }
+
+    return '${value.toStringAsFixed(1)}%';
   }
 
   Widget _summaryCard({
@@ -182,10 +138,13 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
       child: Card(
         elevation: 1,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 12,
+          ),
           child: Column(
             children: [
-              Icon(icon, size: 24),
+              Icon(icon, size: 25),
               const SizedBox(height: 6),
               Text(
                 value,
@@ -194,11 +153,11 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 4),
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: 11),
               ),
             ],
           ),
@@ -207,68 +166,149 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
     );
   }
 
-  Widget _institutionSection(
-    String institution,
-    List<MemberReportRow> rows,
-  ) {
+  Widget _institutionCard(InstitutionReportRow row) {
+    final institution = row.institution;
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      clipBehavior: Clip.antiAlias,
+      margin: const EdgeInsets.only(bottom: 10),
       child: ExpansionTile(
-        initiallyExpanded: true,
-        leading: const Icon(Icons.account_balance),
+        initiallyExpanded: false,
+        leading: const Icon(Icons.school),
         title: Text(
-          institution,
+          institution.name,
+          textAlign: TextAlign.right,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
           ),
         ),
-        subtitle: Text('${rows.length} منتسب'),
+        subtitle: Text(
+          '${row.districtName} • ${row.tamMembers} منتسب',
+          textAlign: TextAlign.right,
+        ),
         children: [
           const Divider(height: 1),
-          ...List.generate(rows.length, (index) {
-            final row = rows[index];
-            final member = row.member;
-
-            return ListTile(
-              dense: true,
-              leading: CircleAvatar(
-                radius: 17,
-                child: Text('${index + 1}'),
-              ),
-              title: Text(
-                member.name,
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    _dataBox(
+                      'إجمالي الموظفين',
+                      '${institution.totalStaff}',
+                    ),
+                    _dataBox(
+                      'منتسبو TAM',
+                      '${row.tamMembers}',
+                    ),
+                  ],
                 ),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if ((member.guide ?? '').isNotEmpty)
-                    Text('الدليل: ${member.guide}'),
-                  if ((member.cardNo ?? '').isNotEmpty)
-                    Text('البطاقة: ${member.cardNo}'),
-                  if ((member.phone ?? '').isNotEmpty)
-                    Text('الهاتف: ${member.phone}'),
-                ],
-              ),
-              trailing: _statusChip(member.membershipStatus),
-            );
-          }),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _dataBox(
+                      'نسبة TAM',
+                      _percentage(row.tamPercentage),
+                    ),
+                    _dataBox(
+                      'SIPES',
+                      '${institution.sipesMembers}',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _dataBox(
+                      'SNES',
+                      '${institution.snesMembers}',
+                    ),
+                    _dataBox(
+                      'نقابات أخرى',
+                      '${institution.otherUnionMembers}',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _dataBox(
+                      'غير منخرطين',
+                      '${institution.nonUnionStaff}',
+                    ),
+                    _dataBox(
+                      'غير مصنفين',
+                      '${row.unclassifiedStaff}',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _statusChip(String status) {
-    return Chip(
-      label: Text(
-        _statusLabel(status),
-        style: const TextStyle(fontSize: 11),
+  Widget _dataBox(
+    String label,
+    String value,
+  ) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 10),
+            ),
+          ],
+        ),
       ),
-      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _emptyState() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.account_balance_outlined,
+              size: 55,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'لا توجد مؤسسات مطابقة',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -278,7 +318,7 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('لائحة المنتسبين'),
+          title: const Text('تقرير المؤسسات'),
           actions: [
             IconButton(
               tooltip: 'تحديث',
@@ -287,10 +327,11 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
             ),
           ],
         ),
-        body: FutureBuilder<List<MemberReportRow>>(
+        body: FutureBuilder<InstitutionsReport>(
           future: _future,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+            if (snapshot.connectionState ==
+                ConnectionState.waiting) {
               return const Center(
                 child: CircularProgressIndicator(),
               );
@@ -305,13 +346,15 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
                     children: [
                       const Icon(
                         Icons.error_outline,
-                        size: 48,
+                        size: 50,
                       ),
                       const SizedBox(height: 12),
-                      Text(
-                        'تعذر تحميل لائحة المنتسبين',
-                        style: Theme.of(context).textTheme.titleMedium,
-                        textAlign: TextAlign.center,
+                      const Text(
+                        'تعذر تحميل تقرير المؤسسات',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -330,37 +373,59 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
               );
             }
 
-            final allRows = snapshot.data ?? [];
-            final rows = _filter(allRows);
-            final grouped = _groupByInstitution(rows);
+            final report = snapshot.data;
+
+            if (report == null) {
+              return _emptyState();
+            }
+
+            final rows = _filter(report.rows);
 
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                  padding: const EdgeInsets.fromLTRB(
+                    12,
+                    12,
+                    12,
+                    4,
+                  ),
                   child: Row(
                     children: [
                       _summaryCard(
-                        title: 'إجمالي المنتسبين',
+                        title: 'المؤسسات',
                         value: '${rows.length}',
+                        icon: Icons.account_balance,
+                      ),
+                      const SizedBox(width: 8),
+                      _summaryCard(
+                        title: 'الموظفون',
+                        value: '${report.totalStaff}',
                         icon: Icons.groups,
                       ),
                       const SizedBox(width: 8),
                       _summaryCard(
-                        title: 'المؤسسات',
-                        value: '${grouped.length}',
-                        icon: Icons.account_balance,
+                        title: 'منتسبو TAM',
+                        value: '${report.totalTamMembers}',
+                        icon: Icons.how_to_reg,
                       ),
                     ],
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  padding: const EdgeInsets.fromLTRB(
+                    12,
+                    8,
+                    12,
+                    4,
+                  ),
                   child: TextField(
                     textDirection: TextDirection.rtl,
                     decoration: InputDecoration(
-                      hintText: 'بحث بالاسم أو المؤسسة أو الهاتف...',
-                      prefixIcon: const Icon(Icons.search),
+                      hintText:
+                          'بحث بالمؤسسة أو المقاطعة...',
+                      prefixIcon:
+                          const Icon(Icons.search),
                       suffixIcon: _search.isEmpty
                           ? null
                           : IconButton(
@@ -369,9 +434,11 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
                                   _search = '';
                                 });
                               },
-                              icon: const Icon(Icons.clear),
+                              icon:
+                                  const Icon(Icons.clear),
                             ),
-                      border: const OutlineInputBorder(),
+                      border:
+                          const OutlineInputBorder(),
                     ),
                     onChanged: (value) {
                       setState(() {
@@ -392,7 +459,8 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
                           onPressed: rows.isEmpty
                               ? null
                               : () => _exportCsv(rows),
-                          icon: const Icon(Icons.table_view),
+                          icon:
+                              const Icon(Icons.table_view),
                           label: const Text('CSV'),
                         ),
                       ),
@@ -402,7 +470,9 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
                           onPressed: rows.isEmpty
                               ? null
                               : () => _exportPdf(rows),
-                          icon: const Icon(Icons.picture_as_pdf),
+                          icon: const Icon(
+                            Icons.picture_as_pdf,
+                          ),
                           label: const Text('PDF'),
                         ),
                       ),
@@ -412,22 +482,15 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
                 const SizedBox(height: 4),
                 Expanded(
                   child: rows.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'لا توجد بيانات منتسبين',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        )
+                      ? _emptyState()
                       : ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: grouped.length,
-                          itemBuilder: (context, index) {
-                            final entry =
-                                grouped.entries.elementAt(index);
-
-                            return _institutionSection(
-                              entry.key,
-                              entry.value,
+                          padding:
+                              const EdgeInsets.all(12),
+                          itemCount: rows.length,
+                          itemBuilder:
+                              (context, index) {
+                            return _institutionCard(
+                              rows[index],
                             );
                           },
                         ),
