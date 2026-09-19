@@ -125,6 +125,14 @@ class UserRepository {
     );
   }
 
+  /// يُنشئ أو يُحدِّث نسخة محلية (SQLite) لمستخدم مُصادَق عليه عبر
+  /// Supabase. البحث عن الصف الموجود يتم بترتيب:
+  /// 1) بـ cloud_user_id إن كان مربوطًا مسبقًا (الحالة العادية بعد
+  ///    أول دخول ناجح).
+  /// 2) وإلا بـ username — يغطي حالة وجود حساب محلي قديم بنفس الاسم
+  ///    أُنشئ قبل تفعيل السحابة (مثل حسابات _seedRoleUsers/admin
+  ///    الافتراضية)، فيُربَط الآن بـ cloud_user_id بدل محاولة إدراج
+  ///    صف مكرر يفشل بخطأ UNIQUE على username.
   Future<AppUser> cacheCloudUser({
     required String cloudUserId,
     required String username,
@@ -135,12 +143,20 @@ class UserRepository {
     bool mustChangePassword = false,
   }) async {
     final db = await _db;
-    final existing = await db.query(
+    var existing = await db.query(
       'users',
       where: 'cloud_user_id = ?',
       whereArgs: [cloudUserId],
       limit: 1,
     );
+    if (existing.isEmpty) {
+      existing = await db.query(
+        'users',
+        where: 'username = ?',
+        whereArgs: [username],
+        limit: 1,
+      );
+    }
     final now = DateTime.now().toIso8601String();
     if (existing.isEmpty) {
       final salt = _generateSalt();
@@ -167,6 +183,7 @@ class UserRepository {
       'role': role.key,
       'must_change_password': mustChangePassword ? 1 : 0,
       'member_id': memberId,
+      'cloud_user_id': cloudUserId,
       'is_active': isActive ? 1 : 0,
     }, where: 'id = ?', whereArgs: [id]);
     return (await getById(id))!;
@@ -241,3 +258,4 @@ class UserRepository {
     }
   }
 }
+
