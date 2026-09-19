@@ -18,13 +18,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _obscure = true;
   String? _error;
+  // رسالة تشخيصية تقنية مؤقتة — تُزال بعد حل مشكلة تسجيل الدخول.
+  String? _debugError;
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() { _loading = true; _error = null; _debugError = null; });
     final outcome = await _auth.login(_usernameCtrl.text.trim(), _passwordCtrl.text);
     if (!mounted) return;
-    setState(() => _loading = false);
+    setState(() {
+      _loading = false;
+      _debugError = _auth.lastError;
+    });
     switch (outcome.result) {
       case LoginResult.success:
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const RootShell()));
@@ -93,6 +98,21 @@ class _LoginScreenState extends State<LoginScreen> {
                             if (_error != null) ...[
                               const SizedBox(height: 14),
                               Container(width: double.infinity, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(14)), child: Text(_error!, style: TextStyle(color: scheme.onErrorContainer))),
+                            ],
+                            if (_debugError != null) ...[
+                              const SizedBox(height: 8),
+                              // تفصيل تقني مؤقت لتشخيص مشكلة الدخول — احذف
+                              // هذا الصندوق بعد التأكد من عمل الدخول بشكل صحيح.
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
+                                child: SelectableText(
+                                  'تفصيل تقني: $_debugError',
+                                  textDirection: TextDirection.ltr,
+                                  style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12, fontFamily: 'monospace'),
+                                ),
+                              ),
                             ],
                             const SizedBox(height: 20),
                             FilledButton.icon(
