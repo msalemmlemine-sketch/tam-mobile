@@ -35,6 +35,14 @@ jobs:
         # إطلاقًا — يضيف فقط مجلدات المنصّة الناقصة (android هنا).
         run: flutter create --platforms=android --org com.tam.mobile .
 
+      - name: إضافة صلاحية الإنترنت للـ Manifest
+        # flutter create لا يضيف صلاحية INTERNET صراحةً في نسخة
+        # release (تُضاف تلقائيًا فقط في debug/profile عبر أدوات
+        # التطوير)، فبدونها تفشل كل طلبات الشبكة بـ "Failed host
+        # lookup" رغم أن الإنترنت شغّال فعليًا على الجهاز.
+        run: |
+          sed -i 's#<manifest xmlns:android="http://schemas.android.com/apk/res/android">#<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>#' android/app/src/main/AndroidManifest.xml
+
       - name: إعداد الإشعارات المجدولة
         run: python3 tools/configure_notifications_android.py
 
