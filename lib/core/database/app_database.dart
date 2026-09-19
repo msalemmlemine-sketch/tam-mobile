@@ -29,6 +29,15 @@ class AppDatabase {
 
   Database? _db;
 
+  /// يحمي عملية الفتح من التنفيذ أكثر من مرة عند وجود أكثر من
+  /// استدعاء متزامن لـ [database] وقت الإقلاع (مثلاً أكثر من شاشة
+  /// تطلبها بنفس اللحظة). بدون هذا القفل، كل استدعاء يجد `_db`
+  /// لا تزال `null` فيبدأ عملية `_open()` مستقلة خاصة به، وبالتالي
+  /// `_onCreate`/`_seedDefaults` قد يُنفَّذ أكثر من مرة بالتوازي على
+  /// نفس ملف القاعدة، فيصطدم إدراج المستخدم الافتراضي admin بقيد
+  /// UNIQUE ويرمي استثناء غير معالج يُعلّق التطبيق بشاشة بيضاء.
+  Future<Database>? _openingFuture;
+
   /// مسار بديل يُستخدم فقط من اختبارات التكامل (test/*.dart) لتفادي
   /// الاعتماد على path_provider (الذي يحتاج قناة منصّة حقيقية غير
   /// متوفرة في `flutter test` العادي). لا يُستخدم في التطبيق الفعلي.
@@ -36,7 +45,13 @@ class AppDatabase {
 
   Future<Database> get database async {
     if (_db != null) return _db!;
-    _db = await _open();
+    if (_openingFuture != null) return _openingFuture!;
+    _openingFuture = _open();
+    try {
+      _db = await _openingFuture!;
+    } finally {
+      _openingFuture = null;
+    }
     return _db!;
   }
 
@@ -361,19 +376,18 @@ class AppDatabase {
     // (مشفّرة هنا بنفس خوارزمية AuthService: sha256(salt + password)).
     // يجب تغييرها إجباريًا عند أول تسجيل دخول (must_change_password=1)
     // مطابقةً لسلوك lib/helpers.php الأصلي.
+    // استخدام INSERT OR IGNORE (بدل db.insert العادي) كإجراء وقائي
+    // إضافي: لو حصل أي استدعاء متكرر لهذه الدالة لأي سبب مستقبلي
+    // (خطأ برمجي، إعادة محاولة بعد فشل جزئي، ...)، لا يتوقف التطبيق
+    // بخطأ UNIQUE constraint غير معالج — يتجاهل الإدراج المكرر بأمان.
     const defaultSalt = 'tam_default_salt_v1';
     final defaultHash =
         sha256.convert(utf8.encode('$defaultSalt admin123')).toString();
-    await db.insert('users', {
-      'username': 'admin',
-      'password_hash': defaultHash,
-      'password_salt': defaultSalt,
-      'display_name': 'المسؤول',
-      'role': 'administrator',
-      'must_change_password': 1,
-      'failed_attempts': 0,
-      'created_at': now,
-    });
+    await db.rawInsert('''
+      INSERT OR IGNORE INTO users
+      (username, password_hash, password_salt, display_name, role, must_change_password, failed_attempts, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', ['admin', defaultHash, defaultSalt, 'المسؤول', 'administrator', 1, 0, now]);
 
     await _seedRoleUsers(db);
   }
