@@ -170,4 +170,52 @@ class SyncOutbox {
     await db.delete('settings',
         where: 'setting_key = ?', whereArgs: ['needs_full_cloud_resync']);
   }
+  /// آخر أخطاء الرفع المسجَّلة للعمليات المعلقة.
+  Future<List<Map<String, Object?>>> failedWithErrors({int limit = 20}) async {
+    final db = await _db;
+    return db.query(
+      'sync_outbox',
+      columns: ['id', 'table_name', 'operation', 'attempt_count', 'last_error'],
+      where: 'synced_at IS NULL AND last_error IS NOT NULL',
+      orderBy: 'id ASC',
+      limit: limit,
+    );
+  }
+
+  static const _syncOrder = [
+    'districts',
+    'institutions',
+    'members',
+    'subscription_payments',
+    'regional_expenses',
+    'fund_opening_overrides',
+  ];
+
+  /// يعيد بناء عمليات الرفع المعلقة من الجداول المحلية بترتيب الآباء أولاً.
+  /// لا يحذف أي بيانات محلية؛ يستبدل فقط عمليات upsert المعلقة بنسخ حديثة.
+  Future<int> enqueueAllLocalRows() async {
+    final db = await _db;
+    var count = 0;
+    await db.transaction((txn) async {
+      await txn.delete('sync_outbox',
+          where: "synced_at IS NULL AND operation = 'upsert'");
+      for (final table in _syncOrder) {
+        final rows = await txn.query(table);
+        for (final row in rows) {
+          final id = row['id'] as int;
+          final clean = Map<String, Object?>.from(row)
+            ..removeWhere((k, v) =>
+                v == null && (k == 'created_at' || k == 'updated_at'));
+          await enqueueUpsert(
+            db: txn,
+            table: table,
+            localRowId: id,
+            row: clean,
+          );
+          count++;
+        }
+      }
+    });
+    return count;
+  }
 }
