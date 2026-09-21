@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../models/app_role.dart';
 import '../../models/district.dart';
 import '../../models/institution.dart';
 import '../../repositories/district_repository.dart';
 import '../../repositories/institution_repository.dart';
+import '../../services/permission_service.dart';
 
 class InstitutionFormScreen extends StatefulWidget {
   final Institution? institution;
@@ -29,6 +31,12 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
   int _tamMembers = 0;
   bool _saving = false;
   bool get _isEditing => widget.institution != null;
+
+  /// وفق المواصفة: من يملك manageInstitutions فقط (أمين التنظيم/المدير)
+  /// يضيف/يحذف مؤسسات ويغيّر اسمها ومقاطعتها. من يملك editInstitutionStats
+  /// فقط (النقيب/المنسق الجهوي) يعدّل أرقام الطاقم والإحصائيات على مؤسسة
+  /// موجودة فعلًا، دون أن يغيّر اسمها أو مقاطعتها أو ينشئ مؤسسة جديدة.
+  bool get _canEditIdentity => PermissionService.can(Permission.manageInstitutions);
 
   @override
   void initState() {
@@ -99,6 +107,10 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
   }
 
   Future<void> _save() async {
+    if (!_canEditIdentity && !_isEditing) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا تملك صلاحية إضافة مؤسسة جديدة')));
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (_districtId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اختر المقاطعة')));
@@ -156,11 +168,11 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            TextFormField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'اسم المؤسسة *'), validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null),
+            TextFormField(controller: _nameCtrl, enabled: _canEditIdentity, decoration: const InputDecoration(labelText: 'اسم المؤسسة *'), validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null),
             const SizedBox(height: 12),
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: DropdownButtonFormField<int>(value: _districtId, decoration: const InputDecoration(labelText: 'المقاطعة *'), items: _districts.map((d) => DropdownMenuItem(value: d.id, child: Text(d.name))).toList(), onChanged: (v) => setState(() => _districtId = v))),
-              IconButton(onPressed: _addDistrictInline, icon: const Icon(Icons.add_circle_outline), tooltip: 'مقاطعة جديدة'),
+              Expanded(child: DropdownButtonFormField<int>(value: _districtId, decoration: const InputDecoration(labelText: 'المقاطعة *'), items: _districts.map((d) => DropdownMenuItem(value: d.id, child: Text(d.name))).toList(), onChanged: _canEditIdentity ? (v) => setState(() => _districtId = v) : null)),
+              if (_canEditIdentity) IconButton(onPressed: _addDistrictInline, icon: const Icon(Icons.add_circle_outline), tooltip: 'مقاطعة جديدة'),
             ]),
             const SizedBox(height: 20),
             _sectionTitle('تركيب طاقم المؤسسة'),

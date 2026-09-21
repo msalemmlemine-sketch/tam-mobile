@@ -4,7 +4,6 @@ import '../core/database/app_database.dart';
 import '../models/subscription_payment.dart';
 import '../models/app_role.dart';
 import '../services/permission_service.dart';
-import '../services/drive_sync_service.dart';
 import '../services/subscription_calculator.dart';
 import '../services/sync_outbox.dart';
 
@@ -26,7 +25,6 @@ class SubscriptionRepository {
     final db = await _db;
     await db.update('subscription_settings', {'setting_value': value.toString()},
         where: 'setting_key = ?', whereArgs: [key]);
-    await DriveSyncService().markDirty();
   }
 
   Future<void> _ensureDues(DatabaseExecutor db, int memberId, int year, double fallbackAmount) async {
@@ -108,7 +106,6 @@ class SubscriptionRepository {
       localRowId: id,
       row: (await db.query('subscription_payments', where: 'id = ?', whereArgs: [id])).first,
     );
-    await DriveSyncService().markDirty();
     return id;
   }
 
@@ -116,7 +113,7 @@ class SubscriptionRepository {
     PermissionService.require(Permission.editPayments);
     if (payment.id == null) throw ArgumentError('payment.id is required');
     final db = await _db;
-    final count = await db.update('subscription_payments', payment.toMap(),
+    final count = await db.update('subscription_payments', {...payment.toMap(), 'updated_at': DateTime.now().toIso8601String()},
         where: 'id = ?', whereArgs: [payment.id]);
     await _allocatePayment(db, payment.id!);
     await _audit(db, 'update', 'subscription_payment', payment.id,
@@ -129,19 +126,19 @@ class SubscriptionRepository {
     // زال التعديل المباشر مسموحًا (كما كان)، لكن مزامنته السحابية
     // كـ"حركة تصحيحية" تلقائية غير مُنفَّذة بعد — يبقى هذا التصحيح
     // محليًا فقط حتى تُبنى هذه الميزة (موثَّق في CLOUD_SETUP.md).
-    await DriveSyncService().markDirty();
     return count;
   }
 
   Future<int> deletePayment(int id) async {
     PermissionService.require(Permission.deletePayments);
     final db = await _db;
+    final existing = await db.query('subscription_payments', columns:['sync_uuid'], where:'id=?', whereArgs:[id], limit:1);
+    final syncUuid = existing.isEmpty ? null : existing.first['sync_uuid'] as String?;
     final count = await db.delete('subscription_payments', where: 'id = ?', whereArgs: [id]);
     await _audit(db, 'delete', 'subscription_payment', id, 'حذف دفعة');
     // لا مزامنة سحابية لهذا الحذف لنفس سبب updatePayment أعلاه —
     // Supabase يمنع حذف الدفعات نهائيًا؛ الحذف المحلي يبقى استثناءً
     // إداريًا محليًا فقط (مثلاً لإصلاح خطأ إدخال فوري لم يُزامَن بعد).
-    await DriveSyncService().markDirty();
     return count;
   }
 

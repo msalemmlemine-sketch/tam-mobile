@@ -4,7 +4,6 @@ import '../core/database/app_database.dart';
 import '../models/member.dart';
 import '../models/app_role.dart';
 import '../services/permission_service.dart';
-import '../services/drive_sync_service.dart';
 import '../services/sync_outbox.dart';
 import 'user_repository.dart';
 
@@ -113,7 +112,6 @@ class MemberRepository {
       localRowId: id,
       row: (await db.query('members', where: 'id = ?', whereArgs: [id])).first,
     );
-    await DriveSyncService().markDirty();
     return id;
   }
 
@@ -134,7 +132,6 @@ class MemberRepository {
       localRowId: member.id!,
       row: member.toMap(),
     );
-    await DriveSyncService().markDirty();
     return count;
   }
 
@@ -150,7 +147,12 @@ class MemberRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
-    await DriveSyncService().markDirty();
+    if (count > 0) {
+      final row = await db.query('members', where: 'id = ?', whereArgs: [id]);
+      if (row.isNotEmpty) {
+        await const SyncOutbox().enqueueUpsert(db: db, table: 'members', localRowId: id, row: row.first);
+      }
+    }
     return count;
   }
 
@@ -163,7 +165,12 @@ class MemberRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
-    await DriveSyncService().markDirty();
+    if (count > 0) {
+      final row = await db.query('members', where: 'id = ?', whereArgs: [id]);
+      if (row.isNotEmpty) {
+        await const SyncOutbox().enqueueUpsert(db: db, table: 'members', localRowId: id, row: row.first);
+      }
+    }
     return count;
   }
 
@@ -173,8 +180,12 @@ class MemberRepository {
   Future<int> hardDelete(int id) async {
     PermissionService.require(Permission.deleteMembers);
     final db = await _db;
+    final existing = await db.query('members', columns: ['sync_uuid'], where: 'id = ?', whereArgs: [id], limit: 1);
+    final syncUuid = existing.isEmpty ? null : existing.first['sync_uuid'] as String?;
     final count = await db.delete('members', where: 'id = ?', whereArgs: [id]);
-    await DriveSyncService().markDirty();
+    if (count > 0) {
+      await const SyncOutbox().enqueueDelete(db: db, table: 'members', localRowId: id, syncUuid: syncUuid);
+    }
     return count;
   }
 

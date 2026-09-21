@@ -1,7 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../core/database/app_database.dart';
-import '../services/drive_sync_service.dart';
+import '../models/app_role.dart';
+import '../services/permission_service.dart';
 import '../services/sync_outbox.dart';
 import '../models/institution.dart';
 
@@ -27,6 +28,7 @@ class InstitutionRepository {
   }
 
   Future<int> create(Institution institution) async {
+    PermissionService.require(Permission.manageInstitutions);
     final db = await _db;
     final id = await db.insert('institutions', institution.toMap());
     await const SyncOutbox().enqueueUpsert(
@@ -35,28 +37,39 @@ class InstitutionRepository {
       localRowId: id,
       row: (await db.query('institutions', where: 'id = ?', whereArgs: [id])).first,
     );
-    await DriveSyncService().markDirty();
     return id;
   }
 
   Future<int> update(Institution institution) async {
+    // manageInstitutions (أمين التنظيم/المدير): تعديل كامل، بما فيه
+    // الاسم والمقاطعة. editInstitutionStats (النقيب/المنسق الجهوي):
+    // مسموح فقط بتحديث أرقام الطاقم/الإحصائيات لمؤسسة موجودة — الشاشة
+    // (InstitutionFormScreen) تمنع تغيير الاسم/المقاطعة لهذا الدور،
+    // لكن نتحقق هنا أيضًا كطبقة حماية مستقلة عن الواجهة.
+    if (!PermissionService.can(Permission.manageInstitutions)) {
+      PermissionService.require(Permission.editInstitutionStats);
+    }
     final db = await _db;
-    final count = await db.update('institutions', institution.toMap(),
+    final count = await db.update('institutions', {...institution.toMap(), 'updated_at': DateTime.now().toIso8601String()},
         where: 'id = ?', whereArgs: [institution.id]);
     await const SyncOutbox().enqueueUpsert(
       db: db,
       table: 'institutions',
       localRowId: institution.id!,
-      row: institution.toMap(),
+      row: (await db.query('institutions', where:'id=?', whereArgs:[institution.id])).first,
     );
-    await DriveSyncService().markDirty();
     return count;
   }
 
   Future<int> delete(int id) async {
+    PermissionService.require(Permission.manageInstitutions);
     final db = await _db;
+    final existing = await db.query('institutions', columns: ['sync_uuid'], where: 'id = ?', whereArgs: [id], limit: 1);
+    final syncUuid = existing.isEmpty ? null : existing.first['sync_uuid'] as String?;
     final count = await db.delete('institutions', where: 'id = ?', whereArgs: [id]);
-    await DriveSyncService().markDirty();
+    if (count > 0) {
+      await const SyncOutbox().enqueueDelete(db: db, table: 'institutions', localRowId: id, syncUuid: syncUuid);
+    }
     return count;
   }
 

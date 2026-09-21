@@ -12,7 +12,7 @@ import '../models/subscription_payment.dart';
 import '../repositories/member_repository.dart';
 import '../repositories/subscription_repository.dart';
 import 'import/csv_normalizer.dart';
-import 'drive_sync_service.dart';
+import 'sync_outbox.dart';
 
 /// استيراد سجلات اشتراكات قديمة من CSV — منقول من subscription_import.php
 /// مع الحفاظ على نفس خطوتَي "تحليل ومعاينة" ثم "اعتماد الاستيراد"،
@@ -375,12 +375,15 @@ class SubscriptionImporter {
         });
       });
 
+      // الدفعات أعلاه أُدرجت مباشرة عبر INSERT OR IGNORE داخل txn (لا
+      // عبر SubscriptionRepository.recordPayment)، فلم تدخل صف انتظار
+      // المزامنة ولا حصلت على sync_uuid — نفس فجوة استيراد المنتسبين
+      // (member_importer.dart)، وهي فجوة موثَّقة سابقًا في
+      // ENGINEERING_AUDIT_2026-09.md. هذا التمرير اللاحق يسدّها.
+      await const SyncOutbox().backfillMissingSyncUuids('subscription_payments');
+
       final unmatchedCount =
           items.where((x) => x.matchType == ImportMatchType.unmatched).length;
-
-      if (added > 0 || historical > 0 || review > 0) {
-        await DriveSyncService().markDirty();
-      }
 
       return ImportConfirmResult(
         success: true,

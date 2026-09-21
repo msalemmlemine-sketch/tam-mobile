@@ -2,9 +2,9 @@ import 'package:sqflite/sqflite.dart';
 
 import '../core/database/app_database.dart';
 import '../models/app_role.dart';
-import '../services/drive_sync_service.dart';
 import '../services/permission_service.dart';
 import '../models/regional_expense.dart';
+import '../services/sync_outbox.dart';
 
 class FundRepository {
   Future<Database> get _db => AppDatabase.instance.database;
@@ -13,24 +13,32 @@ class FundRepository {
     PermissionService.require(Permission.manageFund);
     final db = await _db;
     final id = await db.insert('regional_expenses', expense.toMap());
-    await DriveSyncService().markDirty();
+    await const SyncOutbox().enqueueUpsert(
+      db: db, table: 'regional_expenses', localRowId: id,
+      row: (await db.query('regional_expenses', where:'id=?', whereArgs:[id])).first,
+    );
     return id;
   }
 
   Future<int> updateExpense(RegionalExpense expense) async {
     PermissionService.require(Permission.manageFund);
     final db = await _db;
-    final count = await db.update('regional_expenses', expense.toMap(),
+    final count = await db.update('regional_expenses', {...expense.toMap(), 'updated_at': DateTime.now().toIso8601String()},
         where: 'id = ?', whereArgs: [expense.id]);
-    await DriveSyncService().markDirty();
+    if (count > 0) {
+      await const SyncOutbox().enqueueUpsert(db: db, table:'regional_expenses', localRowId: expense.id!,
+        row:(await db.query('regional_expenses', where:'id=?', whereArgs:[expense.id])).first);
+    }
     return count;
   }
 
   Future<int> deleteExpense(int id) async {
     PermissionService.require(Permission.manageFund);
     final db = await _db;
+    final existing = await db.query('regional_expenses', columns:['sync_uuid'], where:'id=?', whereArgs:[id], limit:1);
+    final syncUuid = existing.isEmpty ? null : existing.first['sync_uuid'] as String?;
     final count = await db.delete('regional_expenses', where: 'id = ?', whereArgs: [id]);
-    await DriveSyncService().markDirty();
+    if (count > 0) await const SyncOutbox().enqueueDelete(db:db, table:'regional_expenses', localRowId:id, syncUuid:syncUuid);
     return count;
   }
 
@@ -117,16 +125,10 @@ class FundRepository {
       {String? notes}) async {
     PermissionService.require(Permission.manageFund);
     final db = await _db;
-    await db.insert(
-      'fund_opening_overrides',
-      {
-        'year': year,
-        'amount': amount,
-        'notes': notes,
-        'created_at': createdAt,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-    await DriveSyncService().markDirty();
+    final existing = await db.query('fund_opening_overrides', where:'year=?', whereArgs:[year], limit:1);
+    final id = existing.isEmpty
+        ? await db.insert('fund_opening_overrides', {'year':year,'amount':amount,'notes':notes,'created_at':createdAt,'updated_at':createdAt})
+        : (await db.update('fund_opening_overrides', {'amount':amount,'notes':notes,'updated_at':createdAt}, where:'year=?', whereArgs:[year]) > 0 ? existing.first['id'] as int : 0);
+    if (id > 0) await const SyncOutbox().enqueueUpsert(db:db, table:'fund_opening_overrides', localRowId:id, row:(await db.query('fund_opening_overrides', where:'id=?', whereArgs:[id])).first);
   }
 }

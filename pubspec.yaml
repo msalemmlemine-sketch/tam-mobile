@@ -1,7 +1,8 @@
 name: tam_mobile
 description: >
-  تطبيق أندرويد لإدارة منتسبي نقابة تحالف أساتذة موريتانيا (TAM)، يعمل محليًا
-  مع مزامنة مشتركة عبر Google Drive باستخدام Google Apps Script.
+  تطبيق أندرويد لإدارة منتسبي نقابة تحالف أساتذة موريتانيا (TAM)، يعمل
+  Offline-first مع قاعدة بيانات SQLite محلية، ومزامنة ثنائية الاتجاه مع
+  Supabase (Auth/Database/Realtime) كمصدر الحقيقة المركزي الوحيد.
 publish_to: 'none'
 version: 1.4.0+5
 
@@ -40,8 +41,6 @@ dependencies:
   # واجهة
   intl: ^0.20.3
 
-  # الاتصال بواجهة Google Apps Script للمزامنة
-  http: ^1.5.0
   supabase_flutter: ^2.15.4
 
   # التذكيرات المحلية المجدولة يومي 24 و26 من كل شهر

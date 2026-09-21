@@ -43,6 +43,7 @@ enum Permission {
   editPayments,
   deletePayments,
   manageInstitutions,
+  editInstitutionStats,
   manageFund,
   exportLists,
   importData,
@@ -63,6 +64,7 @@ class RolePermissions {
           Permission.editPayments,
           Permission.deletePayments,
           Permission.manageInstitutions,
+          Permission.editInstitutionStats,
           Permission.manageFund,
           Permission.exportLists,
           Permission.importData,
@@ -73,12 +75,15 @@ class RolePermissions {
           Permission.viewReports,
           Permission.viewAnalytics,
           Permission.exportLists,
-          Permission.manageFund,
         }.contains(permission),
       AppRole.regionalCaptain => const {
           Permission.viewReports,
           Permission.viewAnalytics,
           Permission.exportLists,
+          // وفق المواصفة: المنسق/النقيب الجهوي يعدّل الطواقم وإحصائيات
+          // المؤسسات، لكن لا يضيف أو يحذف مؤسسات (ذاك محصور بأمين
+          // التنظيم/المدير عبر Permission.manageInstitutions).
+          Permission.editInstitutionStats,
         }.contains(permission),
       AppRole.administrator => true,
       AppRole.member => false,

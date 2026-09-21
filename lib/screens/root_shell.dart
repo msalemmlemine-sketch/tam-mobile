@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/app_role.dart';
 import '../services/permission_service.dart';
 import '../services/automated_reminder_service.dart';
 import '../services/cloud_sync_engine.dart';
+import '../services/cloud_realtime_sync.dart';
 import '../services/report_service.dart';
 import 'fund/fund_screen.dart';
 import 'home/dashboard_screen.dart';
@@ -20,6 +22,7 @@ class RootShell extends StatefulWidget {
 
 class _RootShellState extends State<RootShell> {
   int _index = 0;
+  Timer? _syncTimer;
 
   @override
   void initState() {
@@ -28,7 +31,9 @@ class _RootShellState extends State<RootShell> {
     // يُفرِّغ صف انتظار مزامنة Supabase عند كل فتح للتطبيق (بالإضافة
     // لأي نقطة أخرى مستقبلية كـ"سحب للتحديث"). لا يفعل شيئًا إن لم
     // يكن Supabase مهيَّأ في هذا البناء (انظر CloudConfig.enabled).
+    CloudRealtimeSync.instance.start();
     CloudSyncEngine().pushPending();
+    _syncTimer = Timer.periodic(const Duration(minutes: 2), (_) => CloudSyncEngine().pushPending());
   }
 
   Future<void> _initializeAutomatedReminders() async {
@@ -67,6 +72,12 @@ class _RootShellState extends State<RootShell> {
       _Destination('الصندوق', Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, FundScreen()),
       _Destination('المزيد', Icons.menu_rounded, Icons.menu_rounded, MoreScreen()),
     ];
+  }
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
   }
 
   @override

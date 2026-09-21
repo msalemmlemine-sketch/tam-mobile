@@ -47,7 +47,37 @@ class SyncOutbox {
     });
   }
 
-  static const _sharedTables = {'districts','institutions','members','subscription_payments'};
+  static const _sharedTables = {
+    'districts',
+    'institutions',
+    'members',
+    'subscription_payments',
+    'regional_expenses',
+    'fund_opening_overrides',
+  };
+
+  /// يُعالج فجوة: صفوف أُنشئت بإدخال SQLite مباشر خارج طبقة
+  /// المستودعات (كالمؤسسات/المقاطعات/المنتسبين المُنشأة ضمنيًا أثناء
+  /// استيراد CSV) فبقيت بلا sync_uuid ولم تدخل صف الانتظار إطلاقًا،
+  /// أي أنها لن تصل لـ Supabase أبدًا رغم نجاح كتابتها محليًا. يجب
+  /// استدعاؤها بعد أي عملية استيراد جماعي، بترتيب الجداول الأب قبل
+  /// الابن (districts ثم institutions ثم members) لضمان أن أي مرجع
+  /// (district_id/institution_id) يُحل لاحقًا بشكل صحيح في CloudService.
+  Future<int> backfillMissingSyncUuids(String table) async {
+    final db = await _db;
+    final rows = await db.query(table, where: 'sync_uuid IS NULL OR sync_uuid = ?', whereArgs: ['']);
+    var count = 0;
+    for (final row in rows) {
+      final id = row['id'] as int;
+      final uuid = _uuidV4();
+      await db.update(table, {'sync_uuid': uuid}, where: 'id = ?', whereArgs: [id]);
+      final full = Map<String, Object?>.from(row);
+      full['sync_uuid'] = uuid;
+      await enqueueUpsert(db: db, table: table, localRowId: id, row: full);
+      count++;
+    }
+    return count;
+  }
 
   static String _uuidV4() {
     final r = Random.secure();
@@ -58,17 +88,21 @@ class SyncOutbox {
     return '${h.substring(0,8)}-${h.substring(8,12)}-${h.substring(12,16)}-${h.substring(16,20)}-${h.substring(20,32)}';
   }
 
-  /// يُسجِّل عملية "حذف" — لا حاجة لمحتوى الصف، فقط مفتاحه.
+  /// يُسجِّل عملية "حذف" — يلتقط sync_uuid الصف *قبل* حذفه محليًا
+  /// (مرَّره المستدعي في [syncUuid])، لأن الصف نفسه لن يكون موجودًا
+  /// محليًا بعد الآن عندما يُعالَج هذا الصف من صف الانتظار لاحقًا —
+  /// فلا يمكن الاعتماد على البحث عنه وقتها بواسطة id محلي.
   Future<void> enqueueDelete({
     required DatabaseExecutor db,
     required String table,
     required int localRowId,
+    String? syncUuid,
   }) async {
     await db.insert('sync_outbox', {
       'table_name': table,
       'local_row_id': localRowId,
       'operation': 'delete',
-      'payload_json': null,
+      'payload_json': syncUuid == null ? null : jsonEncode({'sync_uuid': syncUuid}),
       'attempt_count': 0,
       'created_at': DateTime.now().toIso8601String(),
     });

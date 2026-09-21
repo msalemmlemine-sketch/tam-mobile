@@ -7,6 +7,8 @@ import 'cloud_config.dart';
 import 'permission_service.dart';
 import 'secure_kv_store.dart';
 import 'supabase_service.dart';
+import 'cloud_realtime_sync.dart';
+import 'cloud_sync_engine.dart';
 
 enum LoginResult { success, wrongPassword, locked, mustChangePassword }
 
@@ -57,6 +59,8 @@ class AuthService {
         await _storage.write(_sessionKey, user.id.toString());
         await _touchActivity();
         PermissionService.currentUser = user;
+        await CloudRealtimeSync.instance.start();
+        await CloudSyncEngine().sync();
         if (user.mustChangePassword) {
           return (result: LoginResult.mustChangePassword, user: user);
         }

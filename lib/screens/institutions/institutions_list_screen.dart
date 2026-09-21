@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../models/app_role.dart';
 import '../../models/district.dart';
 import '../../models/institution.dart';
 import '../../repositories/district_repository.dart';
 import '../../repositories/institution_repository.dart';
+import '../../services/permission_service.dart';
 import 'institution_form_screen.dart';
 
 class InstitutionsListScreen extends StatefulWidget {
@@ -36,7 +38,9 @@ class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('المؤسسات'), actions: [IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh_rounded), tooltip: 'تحديث')]),
-      floatingActionButton: FloatingActionButton.extended(onPressed: () async { final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const InstitutionFormScreen())); if (saved == true) _refresh(); }, icon: const Icon(Icons.add), label: const Text('مؤسسة')),
+      floatingActionButton: PermissionService.can(Permission.manageInstitutions)
+          ? FloatingActionButton.extended(onPressed: () async { final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const InstitutionFormScreen())); if (saved == true) _refresh(); }, icon: const Icon(Icons.add), label: const Text('مؤسسة'))
+          : null,
       body: FutureBuilder<_Data>(
         future: _future,
         builder: (context, snapshot) {

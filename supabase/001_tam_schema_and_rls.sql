@@ -21,6 +21,13 @@
 -- 4) سجل تدقيق مالي حقيقي عبر Triggers على subscription_payments —
 --    وليس فقط سياسة INSERT تعتمد على أن العميل "يتطوع" بتسجيل
 --    العملية بنفسه (وهي طريقة يسهل لعميل معطوب أو خبيث تجاوزها).
+-- 5) institutions: سياسة UPDATE منفصلة تمنح regional_captain حق
+--    تعديل مؤسسة موجودة (أرقام الطاقم/الإحصائيات) دون INSERT أو
+--    DELETE — يطابق Permission.editInstitutionStats الجديد في تطبيق
+--    Flutter (كان قبل هذا التحديث محصورًا في سياسة FOR ALL واحدة لا
+--    تمنح regional_captain أي وصول كتابة إطلاقًا، مما كان يمنعه من
+--    تنفيذ الصلاحية الممنوحة له في المواصفة حتى لو تجاوز واجهة
+--    التطبيق مباشرة).
 -- ============================================================
 
 create extension if not exists pgcrypto;
@@ -205,14 +212,37 @@ create policy districts_write on public.districts for all
 
 drop policy if exists institutions_select on public.institutions;
 create policy institutions_select on public.institutions for select using (auth.uid() is not null);
+
+-- تحديث 2026-09: institutions_write المُوحَّدة (FOR ALL) استُبدلت
+-- بثلاث سياسات منفصلة حسب العملية. السبب: النقيب/المنسق الجهوي
+-- (regional_captain) يملك صلاحية تعديل أرقام الطاقم والإحصائيات على
+-- مؤسسة موجودة فعلًا (Permission.editInstitutionStats في التطبيق)،
+-- لكن لا يضيف مؤسسة جديدة ولا يحذفها — تلك محصورة بأمين
+-- التنظيم/المدير فقط (Permission.manageInstitutions). سياسة واحدة
+-- FOR ALL لا تستطيع التمييز بين هذين المستويين من الصلاحية.
 drop policy if exists institutions_write on public.institutions;
-create policy institutions_write on public.institutions for all
-  using (
+drop policy if exists institutions_insert on public.institutions;
+create policy institutions_insert on public.institutions for insert
+  with check (
     public.is_admin()
     or public.current_role() = 'organization_secretary'
     or (public.current_role() = 'district_manager' and district_id = public.current_district_id())
+  );
+drop policy if exists institutions_update on public.institutions;
+create policy institutions_update on public.institutions for update
+  using (
+    public.is_admin()
+    or public.current_role() in ('organization_secretary','regional_captain')
+    or (public.current_role() = 'district_manager' and district_id = public.current_district_id())
   )
   with check (
+    public.is_admin()
+    or public.current_role() in ('organization_secretary','regional_captain')
+    or (public.current_role() = 'district_manager' and district_id = public.current_district_id())
+  );
+drop policy if exists institutions_delete on public.institutions;
+create policy institutions_delete on public.institutions for delete
+  using (
     public.is_admin()
     or public.current_role() = 'organization_secretary'
     or (public.current_role() = 'district_manager' and district_id = public.current_district_id())

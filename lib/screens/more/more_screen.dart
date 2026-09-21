@@ -11,6 +11,7 @@ import '../reports/reports_screen.dart';
 import '../settings/backup_screen.dart';
 import '../settings/member_import_screen.dart';
 import '../settings/organization_settings_screen.dart';
+import '../settings/sync_status_screen.dart';
 import '../subscriptions/import_screen.dart';
 
 class MoreScreen extends StatelessWidget {
@@ -20,7 +21,8 @@ class MoreScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final role = PermissionService.role;
     final canReports = PermissionService.can(Permission.viewReports);
-    final canInstitutions = PermissionService.can(Permission.manageInstitutions);
+    final canInstitutions = PermissionService.can(Permission.manageInstitutions) ||
+        PermissionService.can(Permission.editInstitutionStats);
     final canImport = PermissionService.can(Permission.importData);
     return Scaffold(
       appBar: AppBar(title: Text(role.label)),
@@ -39,6 +41,9 @@ class MoreScreen extends StatelessWidget {
             _Item(icon: Icons.backup_rounded, title: 'النسخ الاحتياطي والاستعادة', subtitle: 'حماية قاعدة البيانات واستعادتها', onTap: () => _open(context, const BackupScreen())),
           ]))),
         ],
+        const SizedBox(height: 8),
+        if (PermissionService.can(Permission.viewReports))
+          Card(child: _Item(icon: Icons.sync_rounded, title: 'المزامنة', subtitle: 'Supabase وOutbox وحالة العمليات المعلقة', onTap: () => _open(context, const SyncStatusScreen()))),
         const SizedBox(height: 8),
         Card(child: _Item(icon: Icons.lock_reset_rounded, title: 'تغيير كلمة المرور', subtitle: 'تحديث بيانات الدخول', onTap: () async {
           final user = PermissionService.currentUser;

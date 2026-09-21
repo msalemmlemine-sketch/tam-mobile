@@ -8,8 +8,6 @@ import 'package:timezone/timezone.dart' as tz;
 import '../models/app_role.dart';
 import '../services/permission_service.dart';
 import 'report_service.dart';
-import 'whatsapp_dispatcher.dart';
-import 'whatsapp_service.dart';
 
 /// نظام التذكير الآلي بالمتأخرات.
 ///
@@ -21,7 +19,7 @@ import 'whatsapp_service.dart';
 ///   لحظة الإشعار، فإن النص المجدول عام، بينما يتم تخصيص العدد والمبلغ عند
 ///   فتح التطبيق في يوم التذكير.
 ///
-/// هذا تذكير داخلي على أجهزة الإدارة، وليس إرسال SMS/WhatsApp للمنتسبين.
+/// هذا تذكير داخلي على أجهزة الإدارة، وليس إرسال رسائل خارجية للمنتسبين.
 /// إرسال رسائل خارجية للمنتسبين يحتاج قناة إرسال منفصلة ومصرحًا بها.
 class AutomatedReminderService {
   AutomatedReminderService._();
@@ -105,7 +103,7 @@ class AutomatedReminderService {
     await _notifications.zonedSchedule(
       id,
       'تذكير المتأخرين عن الدفع',
-      'اليوم موعد التذكير. افتح تطبيق TAM لمراجعة قائمة المتأخرين وإرسال التذكيرات.',
+      'اليوم موعد التذكير. افتح تطبيق TAM لمراجعة قائمة المتأخرين عن الدفع.',
       scheduled,
       details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -115,12 +113,9 @@ class AutomatedReminderService {
     );
   }
 
-  /// في اليوم 24 أو 26 من كل شهر: يُحسب المتأخرون فعليًا، تُرسل
-  /// إشعار محلي مفصّل للإدارة على الجهاز، **وتُقيَّد وتُرسَل تلقائيًا**
-  /// رسائل واتساب تذكيرية للمنتسبين المتأخرين أنفسهم عبر
-  /// [WhatsAppDispatcher] — دون أي خطوة يدوية من الإدارة لفتح واتساب.
-  /// الإرسال يمر عبر صف انتظار (whatsapp_messages) بفاصل عشوائي وحد
-  /// يومي حتى لا يُحظر رقم واتساب النقابة (انظر WhatsAppDispatcher).
+  /// في اليوم 24 أو 26 من كل شهر: يُحسب المتأخرون فعليًا، وتُرسل
+  /// إشعار محلي مفصّل للإدارة على الجهاز فقط. لا يوجد أي إرسال خارجي
+  /// (واتساب أو غيره) للمنتسبين من هذا التطبيق.
   Future<void> checkAndSendAutomatedReminders(
     List<MemberDebtRow> overdueMembers,
   ) async {
@@ -136,35 +131,6 @@ class AutomatedReminderService {
       count: overdueMembers.length,
       totalRemaining: total,
     );
-
-    await _queueAndDispatchWhatsAppReminders(overdueMembers);
-  }
-
-  /// يُنشئ صفوف whatsapp_messages للمتأخرين الذين لديهم رقم هاتف
-  /// (تجاهل بصمت من دونه)، ثم يستدعي المُرسِل الآمن فورًا لهذه
-  /// الدورة الشهرية. إن لم يكن واتساب مُهيَّأ في الإعدادات الآمنة
-  /// (WhatsAppService.enabled == false) لا تُنشأ رسائل ولا يحدث شيء.
-  Future<void> _queueAndDispatchWhatsAppReminders(
-    List<MemberDebtRow> overdueMembers,
-  ) async {
-    final whatsapp = WhatsAppService();
-    if (!await whatsapp.enabled) return;
-
-    final rows = overdueMembers
-        .where((r) => (r.member.phone ?? '').trim().isNotEmpty && r.remaining > 0)
-        .map((r) => {
-              'member_id': r.member.id,
-              'phone': r.member.phone,
-              'remaining': r.remaining,
-              'months_due': '',
-            })
-        .toList();
-    if (rows.isEmpty) return;
-
-    await whatsapp.queueOverdueMessages(rows);
-    // يُرسل ما أمكن الآن (بحد أقصى للتشغيل وحد يومي)؛ أي رسائل تتجاوز
-    // الحد تبقى pending لتُستكمل في تشغيلات لاحقة لنفس اليوم أو التالي.
-    await WhatsAppDispatcher().dispatchPending();
   }
 
   bool _isReminderDay() {

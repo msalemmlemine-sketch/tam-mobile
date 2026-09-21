@@ -24,7 +24,7 @@ class AppDatabase {
   AppDatabase._internal();
   static final AppDatabase instance = AppDatabase._internal();
 
-  static const int schemaVersion = 12;
+  static const int schemaVersion = 14;
   static const String dbFileName = 'tam.db';
 
   Database? _db;
@@ -113,7 +113,8 @@ class AppDatabase {
         sync_uuid TEXT UNIQUE,
         name TEXT NOT NULL UNIQUE,
         sort_order INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     ''');
 
@@ -129,6 +130,7 @@ class AppDatabase {
         other_union_members INTEGER NOT NULL DEFAULT 0,
         non_union_staff INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
         UNIQUE (district_id, name),
         FOREIGN KEY (district_id) REFERENCES districts (id) ON DELETE RESTRICT
       )
@@ -193,6 +195,7 @@ class AppDatabase {
         row_hash TEXT UNIQUE,
         notes TEXT,
         created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
       )
     ''');
@@ -240,19 +243,6 @@ class AppDatabase {
         UNIQUE(due_year, due_month)
       )
     ''');
-
-    batch.execute('''
-      CREATE TABLE whatsapp_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        member_id INTEGER, phone TEXT,
-        message_type TEXT NOT NULL, debt_amount REAL NOT NULL DEFAULT 0,
-        months_due TEXT, scheduled_at TEXT NOT NULL, sent_at TEXT,
-        status TEXT NOT NULL DEFAULT 'pending', provider_message_id TEXT, error TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL
-      )
-    ''');
-    batch.execute('CREATE INDEX idx_whatsapp_status_schedule ON whatsapp_messages(status, scheduled_at)');
 
     batch.execute('''
       CREATE TABLE membership_card_payments (
@@ -304,12 +294,14 @@ class AppDatabase {
     batch.execute('''
       CREATE TABLE regional_expenses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sync_uuid TEXT UNIQUE,
         expense_date TEXT NOT NULL,
         amount REAL NOT NULL DEFAULT 0,
         category TEXT NOT NULL DEFAULT 'أخرى',
         description TEXT,
         notes TEXT,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     ''');
 
@@ -320,10 +312,13 @@ class AppDatabase {
     // الرصيد الختامي للسنة السابقة، ولا حاجة لتخزينه.
     batch.execute('''
       CREATE TABLE fund_opening_overrides (
-        year INTEGER PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        year INTEGER NOT NULL UNIQUE,
+        sync_uuid TEXT UNIQUE,
         amount REAL NOT NULL DEFAULT 0,
         notes TEXT,
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     ''');
 
@@ -339,6 +334,21 @@ class AppDatabase {
         created_at TEXT NOT NULL
       )
     ''');
+
+    batch.execute('''
+      CREATE TABLE sync_outbox (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT NOT NULL,
+        local_row_id INTEGER NOT NULL,
+        operation TEXT NOT NULL CHECK (operation IN ('upsert','delete')),
+        payload_json TEXT,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        created_at TEXT NOT NULL,
+        synced_at TEXT
+      )
+    ''');
+    batch.execute('CREATE INDEX idx_outbox_pending ON sync_outbox(synced_at, created_at)');
 
     await batch.commit(noResult: true);
 
@@ -489,10 +499,6 @@ class AppDatabase {
         }
       });
     }
-    if (oldVersion < 8) {
-      await db.execute('''CREATE TABLE IF NOT EXISTS whatsapp_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, member_id INTEGER, phone TEXT, message_type TEXT NOT NULL, debt_amount REAL NOT NULL DEFAULT 0, months_due TEXT, scheduled_at TEXT NOT NULL, sent_at TEXT, status TEXT NOT NULL DEFAULT 'pending', provider_message_id TEXT, error TEXT, created_at TEXT NOT NULL, FOREIGN KEY(member_id) REFERENCES members(id) ON DELETE SET NULL)''');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_whatsapp_status_schedule ON whatsapp_messages(status, scheduled_at)');
-    }
     if (oldVersion < 9) {
       await db.transaction((txn) async {
         await txn.execute('ALTER TABLE institutions ADD COLUMN sipes_members INTEGER NOT NULL DEFAULT 0');
@@ -562,6 +568,43 @@ class AppDatabase {
         }
       });
     }
+
+    if (oldVersion < 13) {
+      await db.execute('DROP TABLE IF EXISTS whatsapp_messages');
+    }
+
+    if (oldVersion < 14) {
+      await db.transaction((txn) async {
+        // Expense sync metadata.
+        try { await txn.execute('ALTER TABLE regional_expenses ADD COLUMN sync_uuid TEXT'); } catch (_) {}
+        try { await txn.execute('ALTER TABLE regional_expenses ADD COLUMN updated_at TEXT'); } catch (_) {}
+        await txn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_regional_expenses_sync_uuid ON regional_expenses(sync_uuid)');
+        final expenseRows = await txn.query('regional_expenses', columns:['id','sync_uuid','created_at']);
+        for (final row in expenseRows) {
+          final values=<String,Object?>{'updated_at':row['created_at'] ?? DateTime.now().toIso8601String()};
+          if (row['sync_uuid']==null) values['sync_uuid']=_newSyncUuid();
+          await txn.update('regional_expenses',values,where:'id=?',whereArgs:[row['id']]);
+        }
+
+        // Upgrade opening overrides from year-as-PK to a normal local integer id.
+        await txn.execute('''CREATE TABLE fund_opening_overrides_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, year INTEGER NOT NULL UNIQUE, sync_uuid TEXT UNIQUE,
+          amount REAL NOT NULL DEFAULT 0, notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        )''');
+        final openings=await txn.query('fund_opening_overrides');
+        for(final row in openings){
+          await txn.insert('fund_opening_overrides_new',{
+            'year':row['year'],'amount':row['amount']??0,'notes':row['notes'],
+            'sync_uuid':_newSyncUuid(),'created_at':row['created_at']??DateTime.now().toIso8601String(),
+            'updated_at':row['created_at']??DateTime.now().toIso8601String(),
+          });
+        }
+        await txn.execute('DROP TABLE fund_opening_overrides');
+        await txn.execute('ALTER TABLE fund_opening_overrides_new RENAME TO fund_opening_overrides');
+        await txn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_opening_overrides_sync_uuid ON fund_opening_overrides(sync_uuid)');
+      });
+    }
+
   }
 
   static String _newSyncUuid() {

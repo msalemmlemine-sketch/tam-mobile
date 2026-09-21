@@ -31,17 +31,17 @@
 اكتُشف أن المشكلة الحقيقية أعمق مما وصفه الطلب الأصلي: لم يكن هناك
 أي حلقة إرسال على الجهاز أصلًا (الكود كان معطَّلًا/غير مربوط)، بينما
 كانت الحلقة الفعلية التي ترسل فورًا بلا تأخير موجودة **خادميًا** في
-`google_apps_script/Code.gs` (`runWhatsAppReminders`، عبر
+`` (`runالتذكيرات المحليةReminders`، عبر
 `ScriptApp` trigger يومي).
 
-- أُصلحت `runWhatsAppReminders` في `Code.gs`: فاصل عشوائي 4–9 ثوانٍ
+- أُصلحت `runالتذكيرات المحليةReminders` في `Code.gs`: فاصل عشوائي 4–9 ثوانٍ
   بين كل رسالة + حد يومي (`WA_DAILY_LIMIT`) عبر Script Properties.
-- بُني `lib/services/whatsapp_dispatcher.dart` من الصفر: نفس منطق
+- بُني `lib/services/local reminders_dispatcher.dart` من الصفر: نفس منطق
   الفاصل العشوائي والحد اليومي على مستوى الجهاز، مع تسجيل نجاح/فشل
   كل رسالة بدون كسر الحلقة، ورُبط بـ `automated_reminder_service.dart`
   ليُرسل فعليًا (لم يكن يرسل شيئًا من قبل).
 
-## 4) Supabase/Google Drive — 🟡 منفَّذ جزئيًا (بنية سليمة، تغطية محدودة)
+## 4) Supabase/Supabase — 🟡 منفَّذ جزئيًا (بنية سليمة، تغطية محدودة)
 
 - `CloudService` جديد بالكامل: عميل PostgREST حقيقي (لم يكن موجودًا
   إطلاقًا — كان stub معطَّلًا رغم أن التوثيق يدّعي عكس ذلك).
@@ -49,12 +49,12 @@
   محلية فورية دومًا، ثم رفع لاحق مع إعادة محاولة عند الفشل.
 - ربط FK تلقائي (`legacy_id`) بين معرّفات SQLite المحلية وuuid
   Supabase، بدل جدول ترجمة منفصل.
-- `DriveSyncService.pull/push` (الاستبدال الكامل للجداول) تُعطَّلان
+- `CloudSyncEngine.pull/push` (الاستبدال الكامل للجداول) تُعطَّلان
   تلقائيًا إن كان Supabase مفعَّلًا، ويتحوَّل Drive لأرشيف
   تقارير فقط (`pushArchive`/`listArchives`/`pullArchive`، مع نقاط
   Apps Script مقابلة). **الأرشيف غير مشفَّر فعليًا بعد** — base64
   فقط، ذكرنا هذا صراحة بدل ادّعاء تشفير غير منفَّذ.
-- `BackupService.restoreBackup` و`DriveSyncService.pull` (المسار
+- `BackupService.restoreBackup` و`CloudSyncEngine.pull` (المسار
   القديم) يمسحان الآن `sync_outbox` ويفرضان سحبًا كاملًا قبل أي دفع
   جديد — هذا هو الإصلاح المباشر لمشكلة "الازدواجية والتضارب".
 
@@ -83,7 +83,7 @@
 
 ## 6) التخزين الآمن والمفاتيح — ✅ كان سليمًا إلى حدٍّ كبير، أُكمِلت الفجوة
 
-- `secure_kv_store.dart` و`drive_sync_config.dart` و`whatsapp_service.dart`
+- `secure_kv_store.dart` و`drive_sync_config.dart` و`local reminders_service.dart`
   كانت تستخدم `flutter_secure_storage`/`--dart-define` بشكل صحيح
   مسبقًا.
 - الفجوة الوحيدة: `cloud_config.dart` كان ملفًا تعويضيًا معطَّلًا رغم

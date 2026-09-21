@@ -4,7 +4,7 @@ import 'package:csv/csv.dart';
 import 'package:sqflite/sqflite.dart';
 import '../core/database/app_database.dart';
 import 'import/csv_normalizer.dart';
-import 'drive_sync_service.dart';
+import 'sync_outbox.dart';
 
 class MemberImportResult {
   final bool success; final int added; final int skipped; final int errors;
@@ -39,7 +39,17 @@ class MemberImporter {
           added++;
         }
       });
-      if (added > 0) await DriveSyncService().markDirty();
+      // الدوائر/المؤسسات/المنتسبون أعلاه أُنشئوا بإدخال SQLite مباشر
+      // داخل txn (لا عبر DistrictRepository/InstitutionRepository/
+      // MemberRepository)، فلم يدخلوا صف انتظار المزامنة ولا حصلوا
+      // على sync_uuid — أي أنهم لن يصلوا لـ Supabase أبدًا رغم نجاح
+      // الاستيراد محليًا. هذا التمرير اللاحق (بترتيب الأب قبل الابن)
+      // يسدّ الفجوة لكل صف استُحدث فعلًا في هذا الاستيراد أو استيراد
+      // سابق لم يُعالَج بعد.
+      const outbox = SyncOutbox();
+      await outbox.backfillMissingSyncUuids('districts');
+      await outbox.backfillMissingSyncUuids('institutions');
+      await outbox.backfillMissingSyncUuids('members');
       return MemberImportResult(success:errors==0,added:added,skipped:skipped,errors:errors,messages:messages,error:errors==0?null:'تم الاستيراد مع وجود $errors أخطاء.');
     } catch(e){return MemberImportResult(success:false,error:e.toString());}
   }

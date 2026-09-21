@@ -4,11 +4,11 @@
 class CloudConfig {
   static const url = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://bgimwyrnzujnnumdgpvf.supabase.co',
+    defaultValue: '',
   );
   static const publishableKey = String.fromEnvironment(
     'SUPABASE_PUBLISHABLE_KEY',
-    defaultValue: 'sb_publishable_t3STKPnfMORAsSe6cI9XDQ_yTJjyMbO',
+    defaultValue: '',
   );
   static bool get enabled =>
       url.trim().isNotEmpty && publishableKey.trim().isNotEmpty;

@@ -103,7 +103,7 @@ class UserRepository {
       {
         'password_hash': passwordHash,
         'password_salt': passwordSalt,
-        'must_change_password': 0,
+        'must_change_password': 1,
       },
       where: 'id = ?',
       whereArgs: [userId],
@@ -240,7 +240,7 @@ class UserRepository {
           'password_salt': salt,
           'display_name': displayName,
           'role': AppRole.member.key,
-          'must_change_password': 0,
+          'must_change_password': 1,
           'failed_attempts': 0,
           'member_id': memberId,
           'created_at': DateTime.now().toIso8601String(),
