@@ -75,7 +75,12 @@ jobs:
         run: python3 tools/inject_signing_config.py
 
       - name: بناء APK موقَّع (release)
-        run: flutter build apk --release
+        # مفاتيح Supabase تُحقن وقت البناء عبر --dart-define، ويقرؤها
+        # الكود من CloudConfig. بدونها تظهر "Supabase غير مهيأ".
+        run: >
+          flutter build apk --release
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
 
       - name: رفع APK كمُرفق للتشغيل (Artifact)
         uses: actions/upload-artifact@v4
