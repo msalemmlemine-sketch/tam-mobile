@@ -7,6 +7,22 @@ import 'services/cloud_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // تشخيص مؤقت: نسخة release تعرض عادة مربعًا رماديًا فاضيًا عند أي
+  // خطأ أثناء البناء، بدل رسالة الخطأ. هذا السطر يجبرها على عرض نص
+  // الخطأ الفعلي بدل الفراغ، لمعرفة سبب الشاشة الفاضية بعد الدخول.
+  ErrorWidget.builder = (details) => Material(
+        color: Colors.red.shade50,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            details.exceptionAsString(),
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+            textDirection: TextDirection.ltr,
+          ),
+        ),
+      );
+
   await CloudService.initialize();
   runApp(const TamApp());
 }
