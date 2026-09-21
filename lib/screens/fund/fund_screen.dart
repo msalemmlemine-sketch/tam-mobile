@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
 
 import '../../models/app_role.dart';
 import '../../models/fund_year_summary.dart';
@@ -191,17 +192,105 @@ class _FundScreenState extends State<FundScreen> {
 
     final monthRows = [
       for (var m = 1; m <= 12; m++)
-        [_monthNames[m - 1], (r.monthlyIncome[m] ?? 0).toStringAsFixed(0), (r.monthlyExpenses[m] ?? 0).toStringAsFixed(0), ((r.monthlyIncome[m] ?? 0) - (r.monthlyExpenses[m] ?? 0)).toStringAsFixed(0)],
+        [
+          _monthNames[m - 1],
+          (r.monthlyIncome[m] ?? 0).toStringAsFixed(0),
+          (r.monthlyExpenses[m] ?? 0).toStringAsFixed(0),
+          ((r.monthlyIncome[m] ?? 0) - (r.monthlyExpenses[m] ?? 0)).toStringAsFixed(0),
+        ],
     ];
     final totalIncome = r.monthlyIncome.values.fold<double>(0, (a, b) => a + b);
     final totalExpenses = r.monthlyExpenses.values.fold<double>(0, (a, b) => a + b);
 
-    await _exportService.exportPdfTable(
+    final categoryRows = r.categoryBreakdown.entries
+        .map((e) => [
+              e.key,
+              e.value.toStringAsFixed(0),
+              r.summary.expenses > 0 ? '${(e.value * 100 / r.summary.expenses).toStringAsFixed(1)}%' : '0%',
+            ])
+        .toList();
+
+    final yearsRows = r.yearsChain
+        .map((y) => [
+              '${y.year}',
+              y.openingBalance.toStringAsFixed(0),
+              y.income.toStringAsFixed(0),
+              y.expenses.toStringAsFixed(0),
+              y.closingBalance.toStringAsFixed(0),
+            ])
+        .toList();
+
+    final expenseRows = r.expenses
+        .map((e) => [e.expenseDate, e.category, e.description ?? '', e.amount.toStringAsFixed(0)])
+        .toList();
+
+    await _exportService.exportPdfReport(
       fileName: 'تقرير_الصندوق_$_year.pdf',
       title: 'التقرير المالي التحليلي للصندوق — سنة $_year',
-      headers: ['الشهر', 'مداخيل (حصة الجهوي)', 'مصاريف', 'الصافي'],
-      rows: monthRows,
-      totalsRow: ['الإجمالي', totalIncome.toStringAsFixed(0), totalExpenses.toStringAsFixed(0), (totalIncome - totalExpenses).toStringAsFixed(0)],
+      cards: [
+        ReportSummaryCard(
+          title: 'الرصيد الافتتاحي',
+          value: '${r.summary.openingBalance.toStringAsFixed(0)} أ.م',
+          subtitle: r.summary.openingIsManualOverride ? 'مُدخَل يدويًا' : 'مرحَّل من ${_year - 1}',
+        ),
+        ReportSummaryCard(
+          title: 'المداخيل (حصة الجهوي)',
+          value: '${r.summary.income.toStringAsFixed(0)} أ.م',
+          accentColor: PdfColors.green700,
+        ),
+        ReportSummaryCard(
+          title: 'المصاريف',
+          value: '${r.summary.expenses.toStringAsFixed(0)} أ.م',
+          accentColor: PdfColors.red700,
+        ),
+        ReportSummaryCard(
+          title: 'الرصيد الحالي',
+          value: '${r.summary.closingBalance.toStringAsFixed(0)} أ.م',
+          accentColor: PdfColors.teal900,
+        ),
+      ],
+      sections: [
+        ReportTableSection(
+          title: 'تركيبة مداخيل الاشتراكات',
+          headers: ['البند', 'المبلغ'],
+          rows: [
+            ['إجمالي الاشتراكات المُحصَّلة', r.totalCollected.toStringAsFixed(0)],
+            ['منها: مباشر للتنفيذي', r.directToExecutive.toStringAsFixed(0)],
+            ['الخاضع للتوزيع (جهوي/تنفيذي)', r.regionalEligible.toStringAsFixed(0)],
+            ['حصة الجهوي من الخاضع للتوزيع', r.summary.income.toStringAsFixed(0)],
+            ['حصة التنفيذي التقديرية', r.executiveShare.toStringAsFixed(0)],
+          ],
+        ),
+        ReportTableSection(
+          title: 'التفصيل الشهري لسنة $_year',
+          headers: ['الشهر', 'مداخيل', 'مصاريف', 'الصافي'],
+          rows: monthRows,
+          totalsRow: [
+            'الإجمالي',
+            totalIncome.toStringAsFixed(0),
+            totalExpenses.toStringAsFixed(0),
+            (totalIncome - totalExpenses).toStringAsFixed(0),
+          ],
+        ),
+        if (categoryRows.isNotEmpty)
+          ReportTableSection(
+            title: 'توزيع المصاريف حسب الفئة',
+            headers: ['الفئة', 'المبلغ', 'النسبة'],
+            rows: categoryRows,
+          ),
+        ReportTableSection(
+          title: 'الاتجاه عبر السنوات',
+          headers: ['السنة', 'افتتاحي', 'مداخيل', 'مصاريف', 'ختامي'],
+          rows: yearsRows,
+        ),
+        if (expenseRows.isNotEmpty)
+          ReportTableSection(
+            title: 'تفاصيل مصاريف سنة $_year',
+            headers: ['التاريخ', 'الفئة', 'الوصف', 'المبلغ'],
+            rows: expenseRows,
+            totalsRow: ['', '', 'الإجمالي', r.summary.expenses.toStringAsFixed(0)],
+          ),
+      ],
     );
   }
 
