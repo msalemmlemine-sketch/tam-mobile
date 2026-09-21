@@ -11,7 +11,13 @@ class CloudSyncSummary {
   final int pushed;
   final int pulled;
   final int failed;
-  const CloudSyncSummary({required this.pushed, required this.pulled, required this.failed});
+  final List<String> errors;
+  const CloudSyncSummary({
+    required this.pushed,
+    required this.pulled,
+    required this.failed,
+    this.errors = const [],
+  });
 }
 
 class CloudSyncEngine {
@@ -21,15 +27,26 @@ class CloudSyncEngine {
   final SyncOutbox _outbox;
 
   Future<CloudSyncSummary> sync({int maxRows = 100}) async {
-    if (!CloudConfig.enabled) return const CloudSyncSummary(pushed: 0, pulled: 0, failed: 0);
+    if (!CloudConfig.enabled) {
+      return const CloudSyncSummary(pushed: 0, pulled: 0, failed: 0);
+    }
     var failed = 0;
     var pushed = 0;
-    try {
-      // Pull first so الهاتف الجديد لا يدفع بيانات seed محلية فوق السحابة.
-      await _cloud.pullAllToLocal();
-    } catch (_) {
-      // لا نمنع العمل المحلي؛ سنحاول الدفع فقط للصفوف المعلقة.
+    var pulled = 0;
+    final errors = <String>[];
+
+    if (SupabaseService.session == null) {
+      errors.add('لا توجد جلسة Supabase (المستخدم غير مسجّل الدخول سحابياً)');
     }
+
+    // Pull first so الهاتف الجديد لا يدفع بيانات seed محلية فوق السحابة.
+    try {
+      await _cloud.pullAllToLocal();
+      pulled = 1;
+    } catch (e) {
+      errors.add('فشل السحب: $e');
+    }
+
     final rows = await _outbox.pending(limit: maxRows);
     for (final entry in rows) {
       final id = entry['id'] as int;
@@ -44,9 +61,7 @@ class CloudSyncEngine {
           if (syncUuid != null) {
             await _cloud.deleteRowBySyncUuid(table: table, syncUuid: syncUuid);
           }
-          // لا sync_uuid محفوظ (صف قديم قبل هذا الإصلاح، أو لم يكن
-          // مرفوعًا لـ Supabase أصلًا) — لا شيء لحذفه سحابيًا، ونعتبر
-          // العملية "منتهية" محليًا بدل إعادة محاولتها للأبد.
+          // لا sync_uuid محفوظ: لا شيء لحذفه سحابياً، نعتبرها منتهية.
         } else {
           final payload = Map<String, Object?>.from(
             jsonDecode(entry['payload_json'] as String? ?? '{}') as Map,
@@ -62,13 +77,29 @@ class CloudSyncEngine {
       } catch (e) {
         await _outbox.markFailed(id, e.toString());
         failed++;
+        if (errors.length < 6) errors.add('رفع $table: $e');
       }
     }
+
     try {
       await _cloud.pullAllToLocal();
+      pulled = 1;
+    } catch (e) {
+      final msg = 'فشل السحب الثاني: $e';
+      if (!errors.contains(msg)) errors.add(msg);
+    }
+    try {
       await _provisionPendingMemberAccounts();
-    } catch (_) {}
-    return CloudSyncSummary(pushed: pushed, pulled: 1, failed: failed);
+    } catch (e) {
+      errors.add('فشل تجهيز حسابات المنتسبين: $e');
+    }
+
+    return CloudSyncSummary(
+      pushed: pushed,
+      pulled: pulled,
+      failed: failed,
+      errors: errors,
+    );
   }
 
   Future<void> _provisionPendingMemberAccounts() async {
@@ -92,7 +123,12 @@ class CloudSyncEngine {
           temporaryPassword: row['phone'].toString(),
         );
         if (cloudId != null) {
-          await db.update('users', {'cloud_user_id': cloudId, 'is_active': 1, 'must_change_password': 1}, where:'id=?', whereArgs:[row['user_id']]);
+          await db.update(
+            'users',
+            {'cloud_user_id': cloudId, 'is_active': 1, 'must_change_password': 1},
+            where: 'id=?',
+            whereArgs: [row['user_id']],
+          );
         }
       } catch (_) {}
     }
