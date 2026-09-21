@@ -7,8 +7,9 @@ import 'supabase_service.dart';
 import 'sync_outbox.dart';
 
 class CloudService {
-  CloudService({SupabaseClient? client}) : _client = client ?? SupabaseService.client;
-  final SupabaseClient _client;
+  CloudService({SupabaseClient? client}) : _clientOverride = client;
+  final SupabaseClient? _clientOverride;
+  SupabaseClient get _client => _clientOverride ?? SupabaseService.client;
 
   static bool get enabled => CloudConfig.enabled;
   static Future<void> initialize() => SupabaseService.initialize();
