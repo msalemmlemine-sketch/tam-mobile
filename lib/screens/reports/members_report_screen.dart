@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../models/district.dart';
 import '../../models/institution.dart';
 import '../../models/member.dart';
+import '../../repositories/district_repository.dart';
 import '../../repositories/institution_repository.dart';
 import '../../services/export_service.dart';
 import '../../services/report_service.dart';
@@ -17,37 +19,52 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
   final _reportService = ReportService();
   final _exportService = ExportService();
   final _institutionRepo = InstitutionRepository();
+  final _districtRepo = DistrictRepository();
 
   List<Institution> _institutions = [];
+  List<District> _districts = [];
   int? _institutionId;
-  late Future<List<({Member member, String institutionName})>> _future;
+  int? _districtId;
+  late Future<List<MembersReportRow>> _future;
 
   @override
   void initState() {
     super.initState();
     _future = _reportService.membersReport();
-    _loadInstitutions();
+    _loadFilters();
   }
 
-  Future<void> _loadInstitutions() async {
+  Future<void> _loadFilters() async {
     final institutions = await _institutionRepo.getAll();
-    setState(() => _institutions = institutions);
-  }
-
-  void _applyFilter(int? institutionId) {
+    final districts = await _districtRepo.getAll();
     setState(() {
-      _institutionId = institutionId;
-      _future = _reportService.membersReport(institutionId: institutionId);
+      _institutions = institutions;
+      _districts = districts;
     });
   }
 
-  Future<void> _exportCsv(List<({Member member, String institutionName})> rows) async {
+  /// يطبّق التصفية الجديدة. اختيار مؤسسة معيّنة يمسح تصفية
+  /// المقاطعة تلقائيًا (تصفية أدقّ تفوز)، واختيار مقاطعة يمسح
+  /// المؤسسة المختارة سابقًا لتجنّب تعارض غير منطقي.
+  void _applyFilter({int? institutionId, int? districtId}) {
+    setState(() {
+      _institutionId = institutionId;
+      _districtId = institutionId != null ? null : districtId;
+      _future = _reportService.membersReport(
+        institutionId: _institutionId,
+        districtId: _districtId,
+      );
+    });
+  }
+
+  Future<void> _exportCsv(List<MembersReportRow> rows) async {
     await _exportService.exportCsv(
       fileName: 'تقرير_المنتسبين.csv',
-      headers: ['الاسم', 'المؤسسة', 'الدليل المالي', 'رقم البطاقة', 'الهاتف', 'الحالة'],
+      headers: ['الاسم', 'المقاطعة', 'المؤسسة', 'الدليل المالي', 'رقم البطاقة', 'الهاتف', 'الحالة'],
       rows: rows
           .map((r) => [
                 r.member.name,
+                r.districtName,
                 r.institutionName,
                 r.member.guide ?? '',
                 r.member.cardNo ?? '',
@@ -60,14 +77,28 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
 
   /// يجمّع المنتسبين حسب المؤسسة ويصدّر لائحة بنفس شكل نموذج
   /// LISTE.pdf: شارة خضراء بعدد المنتسبين لكل مؤسسة، وترقيم
-  /// تسلسلي يبدأ من 1 داخل كل مؤسسة.
-  Future<void> _exportPdf(List<({Member member, String institutionName})> rows) async {
+  /// تسلسلي يبدأ من 1 داخل كل مؤسسة. المؤسسات تُرتَّب حسب
+  /// مقاطعتها أولًا (sortOrder ثم اسم المقاطعة أبجديًا) ثم حسب
+  /// اسم المؤسسة داخل نفس المقاطعة.
+  Future<void> _exportPdf(List<MembersReportRow> rows) async {
     final grouped = <String, List<Member>>{};
+    final groupDistrictOrder = <String, int>{};
+    final groupDistrictName = <String, String>{};
+
     for (final r in rows) {
       grouped.putIfAbsent(r.institutionName, () => []).add(r.member);
+      groupDistrictOrder[r.institutionName] = r.districtSortOrder;
+      groupDistrictName[r.institutionName] = r.districtName;
     }
 
-    final sortedKeys = grouped.keys.toList()..sort();
+    final sortedKeys = grouped.keys.toList()
+      ..sort((a, b) {
+        final orderCmp = groupDistrictOrder[a]!.compareTo(groupDistrictOrder[b]!);
+        if (orderCmp != 0) return orderCmp;
+        final nameCmp = groupDistrictName[a]!.compareTo(groupDistrictName[b]!);
+        if (nameCmp != 0) return nameCmp;
+        return a.compareTo(b);
+      });
 
     final sections = [
       for (final key in sortedKeys)
@@ -99,23 +130,39 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
       appBar: AppBar(
         title: const Text('تقرير المنتسبين'),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
+          preferredSize: const Size.fromHeight(108),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: DropdownButtonFormField<int?>(
-              value: _institutionId,
-              decoration: const InputDecoration(labelText: 'تصفية حسب المؤسسة', isDense: true),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('كل المؤسسات')),
-                ..._institutions
-                    .map((i) => DropdownMenuItem(value: i.id, child: Text(i.name))),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<int?>(
+                  value: _districtId,
+                  decoration: const InputDecoration(labelText: 'تصفية حسب المقاطعة', isDense: true),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('كل المقاطعات')),
+                    ..._districts.map((d) => DropdownMenuItem(value: d.id, child: Text(d.name))),
+                  ],
+                  onChanged: (v) => _applyFilter(districtId: v),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<int?>(
+                  value: _institutionId,
+                  decoration: const InputDecoration(labelText: 'تصفية حسب المؤسسة', isDense: true),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('كل المؤسسات')),
+                    ..._institutions
+                        .where((i) => _districtId == null || i.districtId == _districtId)
+                        .map((i) => DropdownMenuItem(value: i.id, child: Text(i.name))),
+                  ],
+                  onChanged: (v) => _applyFilter(institutionId: v),
+                ),
               ],
-              onChanged: _applyFilter,
             ),
           ),
         ),
       ),
-      body: FutureBuilder<List<({Member member, String institutionName})>>(
+      body: FutureBuilder<List<MembersReportRow>>(
         future: _future,
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -154,7 +201,7 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
                     final r = rows[index];
                     return ListTile(
                       title: Text(r.member.name),
-                      subtitle: Text(r.institutionName),
+                      subtitle: Text('${r.districtName} — ${r.institutionName}'),
                       trailing: Text(r.member.phone ?? ''),
                     );
                   },
