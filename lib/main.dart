@@ -23,7 +23,12 @@ Future<void> main() async {
         ),
       );
 
-  await CloudService.initialize();
+  try {
+    await CloudService.initialize();
+  } catch (_) {
+    // بلا إنترنت عند الإقلاع: لا نمنع فتح التطبيق بسبب فشل تهيئة
+    // Supabase؛ AuthGate وAuthService يتعاملان مع غياب الاتصال لاحقًا.
+  }
   runApp(const TamApp());
 }
 
