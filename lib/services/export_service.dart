@@ -27,6 +27,8 @@ import '../core/database/app_database.dart';
 /// - لا يحتاج إلى اتصال بالإنترنت.
 /// - exportPdfReport: تقرير متعدد الأقسام (بطاقات ملخص + عدة
 ///   جداول بعناوين فرعية) لتقارير غنية مثل تقرير الصندوق.
+/// - exportPdfGroupedList: لائحة مجمّعة حسب مجموعة (مثل المؤسسة)
+///   بشارة عدد لكل مجموعة وترقيم تسلسلي يبدأ من 1 داخل كل مجموعة.
 class ExportService {
   // ============================================================
   // الملفات المؤقتة
@@ -640,7 +642,64 @@ class ExportService {
   }
 
   // ============================================================
-  // PDF TABLE (تقرير بجدول واحد — اللوائح)
+  // شارة عنوان مجموعة (مؤسسة) — شريط أخضر + شارة عدد المنتسبين
+  // ============================================================
+
+  pw.Widget _buildGroupHeader({
+    required String title,
+    required int count,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 14),
+      padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+      decoration: const pw.BoxDecoration(
+        color: PdfColor.fromInt(0xFF14532D),
+        borderRadius: pw.BorderRadius.only(
+          topLeft: pw.Radius.circular(4),
+          topRight: pw.Radius.circular(4),
+        ),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.white,
+              borderRadius: pw.BorderRadius.circular(12),
+            ),
+            child: pw.Text(
+              '$count منتسب',
+              textDirection: pw.TextDirection.rtl,
+              style: pw.TextStyle(
+                font: bold ?? regular,
+                fontSize: 8,
+                fontWeight: pw.FontWeight.bold,
+                color: const PdfColor.fromInt(0xFF14532D),
+              ),
+            ),
+          ),
+          pw.Text(
+            title,
+            textDirection: pw.TextDirection.rtl,
+            textAlign: pw.TextAlign.right,
+            style: pw.TextStyle(
+              font: bold ?? regular,
+              fontSize: 11,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // PDF TABLE (تقرير بجدول واحد — اللوائح البسيطة)
   // ============================================================
 
   Future<void> exportPdfTable({
@@ -813,6 +872,105 @@ class ExportService {
     final file = await _writeTempFile(fileName, bytes);
     await Share.shareXFiles([XFile(file.path)], text: title);
   }
+
+  // ============================================================
+  // لائحة مجمّعة حسب المؤسسة (مثل نموذج LISTE.pdf)
+  // ============================================================
+
+  Future<void> exportPdfGroupedList({
+    required String fileName,
+    required String title,
+    required List<ReportGroupedListSection> groups,
+  }) async {
+    final doc = pw.Document();
+
+    final regular = await _tryLoadFont('assets/fonts/arabic_regular.ttf');
+    final bold = await _tryLoadFont('assets/fonts/arabic_bold.ttf');
+
+    final organization = await _loadOrganizationInfo();
+    final logo = await _loadLogo();
+
+    final now = DateTime.now();
+    final generatedAt = _formatDateTime(now);
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(25, 25, 25, 30),
+        textDirection: pw.TextDirection.rtl,
+        theme: regular != null ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular) : null,
+        header: (context) => _buildHeader(
+          organization: organization,
+          logo: logo,
+          title: title,
+          generatedAt: generatedAt,
+          regular: regular,
+          bold: bold,
+        ),
+        footer: (context) => pw.Container(
+          margin: const pw.EdgeInsets.only(top: 8),
+          padding: const pw.EdgeInsets.only(top: 5),
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
+          ),
+          child: pw.Directionality(
+            textDirection: pw.TextDirection.ltr,
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}', textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(generatedAt, textDirection: pw.TextDirection.ltr, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+              ],
+            ),
+          ),
+        ),
+        build: (context) {
+          final widgets = <pw.Widget>[];
+
+          for (final group in groups) {
+            widgets.add(_buildGroupHeader(
+              title: group.groupTitle,
+              count: group.rows.length,
+              regular: regular,
+              bold: bold,
+            ));
+
+            final headers = ['ملاحظات', 'الهاتف', 'رقم البطاقة', 'الدليل المالي', 'الاسم', '#'];
+            final tableRows = <List<String>>[];
+            for (var i = 0; i < group.rows.length; i++) {
+              final r = group.rows[i];
+              tableRows.add([
+                r['notes'] ?? '',
+                r['phone'] ?? '',
+                r['cardNo'] ?? '',
+                r['guide'] ?? '',
+                r['name'] ?? '',
+                '${i + 1}',
+              ]);
+            }
+
+            widgets.add(_buildTable(
+              headers: headers,
+              rows: tableRows,
+              nameColumnIndex: 4,
+              regular: regular,
+              bold: bold,
+            ));
+            widgets.add(pw.SizedBox(height: 10));
+          }
+
+          widgets.add(_buildSignatures(organization: organization, regular: regular, bold: bold));
+
+          return widgets;
+        },
+      ),
+    );
+
+    final bytes = await doc.save();
+    final file = await _writeTempFile(fileName, bytes);
+    await Share.shareXFiles([XFile(file.path)], text: title);
+  }
 }
 
 // =================================================================
@@ -886,5 +1044,19 @@ class ReportTableSection {
     required this.headers,
     required this.rows,
     this.totalsRow,
+  });
+}
+
+// =================================================================
+// قسم واحد ضمن لائحة مجمّعة حسب المؤسسة (اسم المؤسسة + صفوف
+// المنتسبين كخرائط بمفاتيح: name, guide, cardNo, phone, notes)
+// =================================================================
+class ReportGroupedListSection {
+  final String groupTitle;
+  final List<Map<String, String>> rows;
+
+  const ReportGroupedListSection({
+    required this.groupTitle,
+    required this.rows,
   });
 }
