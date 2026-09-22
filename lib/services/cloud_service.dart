@@ -28,7 +28,8 @@ class CloudService {
 
   Future<String?> _remoteIdBySyncUuid(String table, String syncUuid) async {
     final row = await _client.from(table).select('id').eq('sync_uuid', syncUuid).maybeSingle();
-    return row?['id'] as String?;
+    final id = row?['id'];
+    return id?.toString();
   }
 
   Future<void> upsertRow({required String table, required int legacyId, required Map<String,Object?> row}) async {
@@ -88,6 +89,15 @@ class CloudService {
       final bySync = await db.query('districts', where:'sync_uuid=?', whereArgs:[sync], limit:1);
       int? id = bySync.isEmpty ? null : bySync.first['id'] as int;
       if (id != null && await _localIsNewer(db,'districts',id,r['updated_at']?.toString())) { districtMap[r['id'].toString()] = id; continue; }
+      final name = r['name'];
+      if (id == null && name != null) {
+        // لا يوجد صف محلي بنفس sync_uuid، لكن قد يوجد صف بنفس الاسم
+        // من البذر الأولي (_seedBraeknaInstitutions) الذي يُنشئ نفس
+        // أسماء المناطق محليًا عند أول تشغيل بمعرف مختلف عن السحابة.
+        // بدون هذا الفحص، الإدخال أدناه يصطدم بقيد UNIQUE على name.
+        final byName = await db.query('districts', where:'name=?', whereArgs:[name], limit:1);
+        if (byName.isNotEmpty) id = byName.first['id'] as int;
+      }
       final values = {'sync_uuid':sync,'name':r['name'],'sort_order':r['sort_order']??0,'created_at':r['created_at']??DateTime.now().toIso8601String(),'updated_at':r['updated_at']??r['created_at']??DateTime.now().toIso8601String()};
       if (id == null) id = await db.insert('districts',values); else await db.update('districts',values,where:'id=?',whereArgs:[id]);
       districtMap[r['id'].toString()] = id;
@@ -98,6 +108,13 @@ class CloudService {
       final sync=r['sync_uuid']?.toString(); final districtId=districtMap[r['district_id']?.toString()]; if(sync==null||districtId==null) continue;
       final bySync=await db.query('institutions',where:'sync_uuid=?',whereArgs:[sync],limit:1); int? id=bySync.isEmpty?null:bySync.first['id'] as int;
       if(id!=null && await _localIsNewer(db,'institutions',id,r['updated_at']?.toString())) { institutionMap[r['id'].toString()]=id; continue; }
+      final name = r['name'];
+      if (id == null && name != null) {
+        // نفس منطق districts أعلاه، لكن القيد هنا مركّب
+        // (district_id, name) بدل عمود مفرد.
+        final byName = await db.query('institutions', where:'district_id=? AND name=?', whereArgs:[districtId, name], limit:1);
+        if (byName.isNotEmpty) id = byName.first['id'] as int;
+      }
       final values={'sync_uuid':sync,'district_id':districtId,'name':r['name'],'total_staff':r['total_staff']??0,'sipes_members':r['sipes_members']??0,'snes_members':r['snes_members']??0,'other_union_members':r['other_union_members']??0,'non_union_staff':r['non_union_staff']??0,'created_at':r['created_at']??DateTime.now().toIso8601String(),'updated_at':r['updated_at']??r['created_at']??DateTime.now().toIso8601String()};
       if(id==null) id=await db.insert('institutions',values); else await db.update('institutions',values,where:'id=?',whereArgs:[id]); institutionMap[r['id'].toString()]=id;
     }
