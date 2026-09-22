@@ -1,4 +1,5 @@
 import '../models/member.dart';
+import '../repositories/district_repository.dart';
 import '../repositories/institution_repository.dart';
 import '../repositories/member_repository.dart';
 import '../repositories/subscription_repository.dart';
@@ -20,6 +21,16 @@ class MemberDebtRow {
   });
 }
 
+/// صف تقرير منتسب واحد، مع اسم المؤسسة ومعلومات المقاطعة
+/// اللازمة للفرز والتصفية في تقرير المنتسبين.
+typedef MembersReportRow = ({
+  Member member,
+  String institutionName,
+  int districtId,
+  String districtName,
+  int districtSortOrder,
+});
+
 /// يبني تقارير المنتسبين/المتأخرات — يعتمد على نفس
 /// SubscriptionCalculator المستخدم في تفاصيل المنتسب والـ Dashboard
 /// حتى تتطابق الأرقام في كل مكان كما اشتُرط.
@@ -27,13 +38,16 @@ class ReportService {
   ReportService({
     MemberRepository? memberRepository,
     InstitutionRepository? institutionRepository,
+    DistrictRepository? districtRepository,
     SubscriptionRepository? subscriptionRepository,
   })  : _memberRepo = memberRepository ?? MemberRepository(),
         _institutionRepo = institutionRepository ?? InstitutionRepository(),
+        _districtRepo = districtRepository ?? DistrictRepository(),
         _subRepo = subscriptionRepository ?? SubscriptionRepository();
 
   final MemberRepository _memberRepo;
   final InstitutionRepository _institutionRepo;
+  final DistrictRepository _districtRepo;
   final SubscriptionRepository _subRepo;
   static const _calculator = SubscriptionCalculator();
 
@@ -74,19 +88,48 @@ class ReportService {
     return rows;
   }
 
-  /// تقرير المنتسبين مع اسم المؤسسة، بتصفية اختيارية حسب المؤسسة.
-  Future<List<({Member member, String institutionName})>> membersReport({
+  /// تقرير المنتسبين مع اسم المؤسسة والمقاطعة، بتصفية اختيارية:
+  /// - institutionId: يقتصر التقرير على مؤسسة واحدة بعينها.
+  /// - districtId: يقتصر التقرير على كل مؤسسات مقاطعة بعينها.
+  /// إن أُرسل الاثنان معًا يُعتمَد institutionId ويُتجاهَل
+  /// districtId (تصفية أدقّ تفوز).
+  Future<List<MembersReportRow>> membersReport({
     int? institutionId,
+    int? districtId,
   }) async {
-    final members = await _memberRepo.search(
-      institutionId: institutionId,
-      limit: 100000,
-      offset: 0,
-    );
     final institutions = await _institutionRepo.getAll();
-    final institutionsById = {for (final i in institutions) i.id: i.name};
-    return members
-        .map((m) => (member: m, institutionName: institutionsById[m.institutionId] ?? '—'))
-        .toList();
+    final districts = await _districtRepo.getAll();
+    final districtsById = {for (final d in districts) d.id: d};
+    final institutionsById = {for (final i in institutions) i.id: i};
+
+    List<Member> members;
+    if (institutionId != null) {
+      members = await _memberRepo.search(
+        institutionId: institutionId,
+        limit: 100000,
+        offset: 0,
+      );
+    } else {
+      members = await _memberRepo.search(limit: 100000, offset: 0);
+      if (districtId != null) {
+        final idsInDistrict = institutions
+            .where((i) => i.districtId == districtId)
+            .map((i) => i.id)
+            .toSet();
+        members = members.where((m) => idsInDistrict.contains(m.institutionId)).toList();
+      }
+    }
+
+    return members.map((m) {
+      final inst = institutionsById[m.institutionId];
+      final dist = inst != null ? districtsById[inst.districtId] : null;
+      return (
+        member: m,
+        institutionName: inst?.name ?? '—',
+        districtId: inst?.districtId ?? 0,
+        districtName: dist?.name ?? '—',
+        districtSortOrder: dist?.sortOrder ?? 0,
+      );
+    }).toList();
   }
 }
