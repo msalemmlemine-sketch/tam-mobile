@@ -153,21 +153,20 @@ class AuthService {
 
   Future<void> logout() async {
     if (CloudConfig.enabled && SupabaseService.session != null) {
-      await SupabaseService.client.auth.signOut();
+      try {
+        await SupabaseService.client.auth.signOut();
+      } catch (_) {
+        // بلا إنترنت: لا نمنع الخروج المحلي بسبب فشل استدعاء الشبكة.
+      }
     }
     PermissionService.currentUser = null;
     await _storage.delete(_sessionKey);
     await _storage.delete(_lastActivityKey);
   }
 
-  Future<AppUser?> currentUser() async {
-    if (CloudConfig.enabled) {
-      final authUser = SupabaseService.user;
-      if (authUser == null) return null;
-      final user = await _loadCloudProfile(authUser.id);
-      PermissionService.currentUser = user;
-      return user;
-    }
+  /// المستخدم المحفوظ محلياً من آخر دخول ناجح — يُستخدم كخطة بديلة
+  /// عندما لا يمكن الوصول إلى Supabase (بلا إنترنت).
+  Future<AppUser?> _cachedUser() async {
     final id = await _storage.read(_sessionKey);
     final userId = int.tryParse(id ?? '');
     if (userId == null) return null;
@@ -176,8 +175,31 @@ class AuthService {
     return user;
   }
 
+  Future<AppUser?> currentUser() async {
+    if (CloudConfig.enabled) {
+      final authUser = SupabaseService.user;
+      if (authUser != null) {
+        try {
+          final user = await _loadCloudProfile(authUser.id);
+          PermissionService.currentUser = user;
+          return user;
+        } catch (_) {
+          // بلا إنترنت: نرجع للمستخدم المحفوظ محلياً بدل تعليق الشاشة.
+        }
+      }
+      return _cachedUser();
+    }
+    return _cachedUser();
+  }
+
   Future<bool> hasActiveSession() async {
-    if (CloudConfig.enabled) return SupabaseService.session != null;
+    if (CloudConfig.enabled) {
+      if (SupabaseService.session != null) return true;
+      // جلسة Supabase قد تكون غير مُهيَّأة بعد بسبب غياب الإنترنت
+      // عند بدء التشغيل؛ نعتمد على وجود مستخدم محفوظ محلياً بدلاً
+      // من اعتبار الجهاز بلا جلسة على الإطلاق.
+      return (await _storage.read(_sessionKey)) != null;
+    }
     return (await _storage.read(_sessionKey)) != null;
   }
 
