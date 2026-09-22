@@ -19,16 +19,16 @@ import '../core/database/app_database.dart';
 /// - استعمال خط Amiri المضمّن داخل التطبيق.
 /// - شعار المنظمة من الإعدادات.
 /// - اسم المنظمة من الإعدادات.
-/// - اسم أمين التنظيم والنقيب الجهوي من الإعدادات إن وُجدا.
-/// - في حال عدم وجود اسمي المسؤولين في settings يتم جلبهما
-///   من جدول users حسب الدور الموجود في قاعدة البيانات.
+/// - اسم أمين التنظيم والنقيب الجهوي وأمين المالية من الإعدادات
+///   إن وُجدا، وإلا من جدول users حسب الدور، وإلا قيم افتراضية.
 /// - التوقيعات تظهر في نهاية التقرير فقط.
 /// - CSV يبقى متوافقًا مع الاستدعاءات الحالية.
 /// - لا يحتاج إلى اتصال بالإنترنت.
 /// - exportPdfReport: تقرير متعدد الأقسام (بطاقات ملخص + عدة
 ///   جداول بعناوين فرعية) لتقارير غنية مثل تقرير الصندوق.
 /// - exportPdfGroupedList: لائحة مجمّعة حسب مجموعة (مثل المؤسسة)
-///   بشارة عدد لكل مجموعة وترقيم تسلسلي يبدأ من 1 داخل كل مجموعة.
+///   بشارة عدد لكل مجموعة وترقيم تسلسلي يبدأ من 1 داخل كل مجموعة،
+///   مع منع انقسام جدول أي مجموعة بين صفحتين ما أمكن ذلك.
 class ExportService {
   // ============================================================
   // الملفات المؤقتة
@@ -178,6 +178,12 @@ class ExportService {
         }
       }
     } catch (_) {}
+
+    // قيم افتراضية احتياطية حتى تظهر التوقيعات دومًا حتى لو لم
+    // تُضبط الإعدادات أو جدول users بعد.
+    organizationSecretary ??= 'محمد سالم ابن عمر';
+    regionalCaptain ??= 'الشيخ سيد اعل';
+    financeSecretary ??= 'عيسى بابا محمد أعمش';
 
     return _OrganizationInfo(
       name: organizationName,
@@ -493,7 +499,7 @@ class ExportService {
   }
 
   // ============================================================
-  // التوقيعات
+  // التوقيعات (النقيب الجهوي، أمين التنظيم، أمين المالية)
   // ============================================================
 
   pw.Widget _buildSignatures({
@@ -501,17 +507,26 @@ class ExportService {
     required pw.Font? regular,
     required pw.Font? bold,
   }) {
-    final signatures = <pw.Widget>[];
-
-    if (organization.organizationSecretary != null && organization.organizationSecretary!.isNotEmpty) {
-      signatures.add(_buildSignature(role: 'أمين التنظيم', name: organization.organizationSecretary!, regular: regular, bold: bold));
-    }
-
-    if (organization.regionalCaptain != null && organization.regionalCaptain!.isNotEmpty) {
-      signatures.add(_buildSignature(role: 'النقيب الجهوي', name: organization.regionalCaptain!, regular: regular, bold: bold));
-    }
-
-    if (signatures.isEmpty) return pw.SizedBox();
+    final signatures = <pw.Widget>[
+      _buildSignature(
+        role: 'النقيب الجهوي',
+        name: organization.regionalCaptain ?? '',
+        regular: regular,
+        bold: bold,
+      ),
+      _buildSignature(
+        role: 'أمين التنظيم',
+        name: organization.organizationSecretary ?? '',
+        regular: regular,
+        bold: bold,
+      ),
+      _buildSignature(
+        role: 'أمين المالية',
+        name: organization.financeSecretary ?? '',
+        regular: regular,
+        bold: bold,
+      ),
+    ];
 
     return pw.Container(
       margin: const pw.EdgeInsets.only(top: 24),
@@ -874,7 +889,8 @@ class ExportService {
   }
 
   // ============================================================
-  // لائحة مجمّعة حسب المؤسسة (مثل نموذج LISTE.pdf)
+  // لائحة مجمّعة حسب المؤسسة (مثل نموذج LISTE.pdf)، مع منع
+  // انقسام جدول أي مؤسسة بين صفحتين ما أمكن ذلك.
   // ============================================================
 
   Future<void> exportPdfGroupedList({
@@ -928,7 +944,24 @@ class ExportService {
         build: (context) {
           final widgets = <pw.Widget>[];
 
+          // تقدير تقريبي لعدد صفوف الجدول التي تتّسع في صفحة A4
+          // واحدة مع الهامش/الرأس/التذييل الحاليين. إن لاحظت بعد
+          // التجربة انقسامًا لا يزال يحدث أو فراغًا كبيرًا في
+          // آخر الصفحة، عدّل هذا الرقم فقط.
+          const kMaxRowsPerPage = 24;
+          const kGroupHeaderCost = 2;
+          var usedRows = 0;
+
           for (final group in groups) {
+            final groupCost = kGroupHeaderCost + group.rows.length;
+
+            // إن كانت إضافة هذه المجموعة ستتجاوز سعة الصفحة
+            // الحالية، ابدأ صفحة جديدة قبلها كاملة.
+            if (usedRows > 0 && usedRows + groupCost > kMaxRowsPerPage) {
+              widgets.add(pw.NewPage());
+              usedRows = 0;
+            }
+
             widgets.add(_buildGroupHeader(
               title: group.groupTitle,
               count: group.rows.length,
@@ -958,6 +991,8 @@ class ExportService {
               bold: bold,
             ));
             widgets.add(pw.SizedBox(height: 10));
+
+            usedRows += groupCost;
           }
 
           widgets.add(_buildSignatures(organization: organization, regular: regular, bold: bold));
