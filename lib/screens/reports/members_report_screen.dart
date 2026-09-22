@@ -58,21 +58,38 @@ class _MembersReportScreenState extends State<MembersReportScreen> {
     );
   }
 
+  /// يجمّع المنتسبين حسب المؤسسة ويصدّر لائحة بنفس شكل نموذج
+  /// LISTE.pdf: شارة خضراء بعدد المنتسبين لكل مؤسسة، وترقيم
+  /// تسلسلي يبدأ من 1 داخل كل مؤسسة.
   Future<void> _exportPdf(List<({Member member, String institutionName})> rows) async {
-    await _exportService.exportPdfTable(
-      fileName: 'تقرير_المنتسبين.pdf',
-      title: 'تقرير المنتسبين',
-      headers: ['الاسم', 'المؤسسة', 'الدليل المالي', 'رقم البطاقة', 'الهاتف', 'الحالة'],
-      rows: rows
-          .map((r) => [
-                r.member.name,
-                r.institutionName,
-                r.member.guide ?? '',
-                r.member.cardNo ?? '',
-                r.member.phone ?? '',
-                r.member.membershipStatus,
-              ])
-          .toList(),
+    final grouped = <String, List<Member>>{};
+    for (final r in rows) {
+      grouped.putIfAbsent(r.institutionName, () => []).add(r.member);
+    }
+
+    final sortedKeys = grouped.keys.toList()..sort();
+
+    final sections = [
+      for (final key in sortedKeys)
+        ReportGroupedListSection(
+          groupTitle: key,
+          rows: [
+            for (final m in grouped[key]!)
+              {
+                'name': m.name,
+                'guide': m.guide ?? '',
+                'cardNo': m.cardNo ?? '',
+                'phone': m.phone ?? '',
+                'notes': '',
+              },
+          ],
+        ),
+    ];
+
+    await _exportService.exportPdfGroupedList(
+      fileName: 'لائحة_المنتسبين.pdf',
+      title: 'لائحة المنتسبين',
+      groups: sections,
     );
   }
 
