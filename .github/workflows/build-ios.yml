@@ -46,7 +46,7 @@ jobs:
         run: python3 tools/configure_ios.py
 
       - name: توليد أيقونة التطبيق
-        run: dart run flutter_launcher_icons -f flutter_launcher_icons-ios.yaml
+        run: dart run flutter_launcher_icons -f ios_launcher_icons.yaml
 
       - name: تثبيت CocoaPods dependencies
         run: |
@@ -90,7 +90,7 @@ jobs:
         run: python3 tools/configure_ios.py
 
       - name: توليد أيقونة التطبيق
-        run: dart run flutter_launcher_icons -f flutter_launcher_icons-ios.yaml
+        run: dart run flutter_launcher_icons -f ios_launcher_icons.yaml
 
       - name: تثبيت CocoaPods dependencies
         run: |

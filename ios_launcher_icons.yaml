@@ -1,0 +1,17 @@
+# إعداد أيقونة iOS منفصل تمامًا عن flutter_launcher_icons في
+# pubspec.yaml عمدًا. لا تُسمِّ هذا الملف "flutter_launcher_icons-ios.yaml":
+# مكتبة flutter_launcher_icons (v0.14.4) تكتشف تلقائيًا أي ملف يطابق
+# نمط "flutter_launcher_icons-<flavor>.yaml" في جذر المشروع وتعامله
+# كـ"Flavor" حتى بدون استدعائه صراحة — فلو حمل هذا الاسم، سينهار
+# الأمر البسيط "dart run flutter_launcher_icons" المستخدم في
+# build-signed-apk.yml (بناء أندرويد) لأنه سيحاول تلقائيًا بناء أيقونة
+# iOS رغم أن مجلد ios/ غير موجود هناك إطلاقًا.
+#
+# هذا الملف يُستخدم فقط صراحة داخل .github/workflows/build-ios.yml،
+# بعد أن يكون مجلد ios/ قد أُنشئ فعليًا عبر flutter create --platforms=ios:
+#   dart run flutter_launcher_icons -f ios_launcher_icons.yaml
+flutter_launcher_icons:
+  android: false
+  ios: true
+  image_path: "assets/icon.png"
+  remove_alpha_ios: true
