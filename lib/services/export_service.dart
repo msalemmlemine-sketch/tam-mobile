@@ -49,7 +49,9 @@ class ExportService {
   }
 
   String _safeFileName(String fileName) {
-    return fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
+    return fileName
+        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
+        .trim();
   }
 
   // ============================================================
@@ -309,9 +311,7 @@ class ExportService {
     ];
 
     List<String> reorderRow(List<String> row) {
-      return indexes
-          .map((index) => index < row.length ? row[index] : '')
-          .toList();
+      return indexes.map((index) => index < row.length ? row[index] : '').toList();
     }
 
     return _ReorderedTable(
@@ -435,10 +435,7 @@ class ExportService {
                   cell,
                   textDirection: pw.TextDirection.rtl,
                   textAlign: pw.TextAlign.center,
-                  style: pw.TextStyle(
-                      font: bold ?? regular,
-                      fontSize: 9,
-                      fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(font: bold ?? regular, fontSize: 9, fontWeight: pw.FontWeight.bold),
                 ),
               ),
           ],
@@ -459,12 +456,9 @@ class ExportService {
     required pw.Font? regular,
     required pw.Font? bold,
   }) {
-    final titleStyle = pw.TextStyle(
-        font: bold ?? regular, fontSize: 17, fontWeight: pw.FontWeight.bold);
-    final organizationStyle = pw.TextStyle(
-        font: bold ?? regular, fontSize: 12, fontWeight: pw.FontWeight.bold);
-    final smallStyle = pw.TextStyle(
-        font: regular, fontSize: 8.5, color: PdfColors.grey700);
+    final titleStyle = pw.TextStyle(font: bold ?? regular, fontSize: 17, fontWeight: pw.FontWeight.bold);
+    final organizationStyle = pw.TextStyle(font: bold ?? regular, fontSize: 12, fontWeight: pw.FontWeight.bold);
+    final smallStyle = pw.TextStyle(font: regular, fontSize: 8.5, color: PdfColors.grey700);
 
     return pw.Container(
       margin: const pw.EdgeInsets.only(bottom: 10),
@@ -480,16 +474,10 @@ class ExportService {
             ),
             pw.SizedBox(height: 5),
           ],
-          pw.Text(organization.name,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: organizationStyle),
+          pw.Text(organization.name, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: organizationStyle),
           if (organization.shortName.isNotEmpty) ...[
             pw.SizedBox(height: 2),
-            pw.Text(organization.shortName,
-                textDirection: pw.TextDirection.rtl,
-                textAlign: pw.TextAlign.center,
-                style: smallStyle),
+            pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: smallStyle),
           ],
           pw.SizedBox(height: 7),
           pw.Container(
@@ -501,16 +489,10 @@ class ExportService {
                 bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.7),
               ),
             ),
-            child: pw.Text(title,
-                textDirection: pw.TextDirection.rtl,
-                textAlign: pw.TextAlign.center,
-                style: titleStyle),
+            child: pw.Text(title, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: titleStyle),
           ),
           pw.SizedBox(height: 5),
-          pw.Text('تاريخ الإصدار: $generatedAt',
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: smallStyle),
+          pw.Text('تاريخ الإصدار: $generatedAt', textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: smallStyle),
         ],
       ),
     );
@@ -550,16 +532,12 @@ class ExportService {
       margin: const pw.EdgeInsets.only(top: 24),
       padding: const pw.EdgeInsets.only(top: 10),
       decoration: const pw.BoxDecoration(
-        border:
-            pw.Border(top: pw.BorderSide(color: PdfColors.grey400, width: 0.6)),
+        border: pw.Border(top: pw.BorderSide(color: PdfColors.grey400, width: 0.6)),
       ),
-      child: pw.Directionality(
-        textDirection: pw.TextDirection.rtl,
-        child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: signatures,
-        ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: signatures,
       ),
     );
   }
@@ -574,30 +552,17 @@ class ExportService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          pw.Text(role,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(
-                  font: bold ?? regular,
-                  fontSize: 9,
-                  fontWeight: pw.FontWeight.bold)),
+          pw.Text(role, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: bold ?? regular, fontSize: 9, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 18),
           pw.Container(
             width: 100,
             decoration: const pw.BoxDecoration(
-              border: pw.Border(
-                  bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.7)),
+              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.7)),
             ),
             height: 1,
           ),
           pw.SizedBox(height: 6),
-          pw.Text(name,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(
-                  font: bold ?? regular,
-                  fontSize: 9,
-                  fontWeight: pw.FontWeight.bold)),
+          pw.Text(name, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: bold ?? regular, fontSize: 9, fontWeight: pw.FontWeight.bold)),
         ],
       ),
     );
@@ -627,24 +592,13 @@ class ExportService {
             card.value,
             textDirection: pw.TextDirection.rtl,
             textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(
-                font: bold ?? regular,
-                fontSize: 13,
-                fontWeight: pw.FontWeight.bold,
-                color: card.accentColor ?? PdfColors.teal800),
+            style: pw.TextStyle(font: bold ?? regular, fontSize: 13, fontWeight: pw.FontWeight.bold, color: card.accentColor ?? PdfColors.teal800),
           ),
           pw.SizedBox(height: 4),
-          pw.Text(card.title,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(font: regular, fontSize: 8.5)),
+          pw.Text(card.title, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: regular, fontSize: 8.5)),
           if (card.subtitle != null) ...[
             pw.SizedBox(height: 2),
-            pw.Text(card.subtitle!,
-                textDirection: pw.TextDirection.rtl,
-                textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(
-                    font: regular, fontSize: 7.5, color: PdfColors.grey600)),
+            pw.Text(card.subtitle!, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: regular, fontSize: 7.5, color: PdfColors.grey600)),
           ],
         ],
       ),
@@ -664,10 +618,7 @@ class ExportService {
         alignment: pw.WrapAlignment.center,
         spacing: 8,
         runSpacing: 8,
-        children: [
-          for (final c in cards)
-            _buildSummaryCard(card: c, regular: regular, bold: bold)
-        ],
+        children: [for (final c in cards) _buildSummaryCard(card: c, regular: regular, bold: bold)],
       ),
     );
   }
@@ -693,20 +644,12 @@ class ExportService {
               title,
               textDirection: pw.TextDirection.rtl,
               textAlign: pw.TextAlign.right,
-              style: pw.TextStyle(
-                  font: bold ?? regular,
-                  fontSize: 11,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.white),
+              style: pw.TextStyle(font: bold ?? regular, fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
             ),
           ),
           if (note != null) ...[
             pw.SizedBox(height: 3),
-            pw.Text(note,
-                textDirection: pw.TextDirection.rtl,
-                textAlign: pw.TextAlign.right,
-                style: pw.TextStyle(
-                    font: regular, fontSize: 8, color: PdfColors.grey700)),
+            pw.Text(note, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.right, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
           ],
         ],
       ),
@@ -733,42 +676,39 @@ class ExportService {
           topRight: pw.Radius.circular(4),
         ),
       ),
-      child: pw.Directionality(
-        textDirection: pw.TextDirection.rtl,
-        child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
-          children: [
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: pw.BoxDecoration(
-                color: PdfColors.white,
-                borderRadius: pw.BorderRadius.circular(12),
-              ),
-              child: pw.Text(
-                '$count منتسب',
-                textDirection: pw.TextDirection.rtl,
-                style: pw.TextStyle(
-                  font: bold ?? regular,
-                  fontSize: 8,
-                  fontWeight: pw.FontWeight.bold,
-                  color: const PdfColor.fromInt(0xFF14532D),
-                ),
-              ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.white,
+              borderRadius: pw.BorderRadius.circular(12),
             ),
-            pw.Text(
-              title,
+            child: pw.Text(
+              '$count منتسب',
               textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.right,
               style: pw.TextStyle(
                 font: bold ?? regular,
-                fontSize: 11,
+                fontSize: 8,
                 fontWeight: pw.FontWeight.bold,
-                color: PdfColors.white,
+                color: const PdfColor.fromInt(0xFF14532D),
               ),
             ),
-          ],
-        ),
+          ),
+          pw.Text(
+            title,
+            textDirection: pw.TextDirection.rtl,
+            textAlign: pw.TextAlign.right,
+            style: pw.TextStyle(
+              font: bold ?? regular,
+              fontSize: 11,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -795,17 +735,14 @@ class ExportService {
     final now = DateTime.now();
     final generatedAt = _formatDateTime(now);
 
-    final reordered =
-        _reorderTable(headers: headers, rows: rows, totalsRow: totalsRow);
+    final reordered = _reorderTable(headers: headers, rows: rows, totalsRow: totalsRow);
 
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.fromLTRB(25, 25, 25, 30),
         textDirection: pw.TextDirection.rtl,
-        theme: regular != null
-            ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular)
-            : null,
+        theme: regular != null ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular) : null,
         header: (context) => _buildHeader(
           organization: organization,
           logo: logo,
@@ -818,26 +755,16 @@ class ExportService {
           margin: const pw.EdgeInsets.only(top: 8),
           padding: const pw.EdgeInsets.only(top: 5),
           decoration: const pw.BoxDecoration(
-            border: pw.Border(
-                top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
+            border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
           ),
           child: pw.Directionality(
             textDirection: pw.TextDirection.ltr,
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}',
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(organization.shortName,
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(generatedAt,
-                    textDirection: pw.TextDirection.ltr,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}', textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(generatedAt, textDirection: pw.TextDirection.ltr, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
               ],
             ),
           ),
@@ -856,12 +783,10 @@ class ExportService {
           }
 
           if (reordered.totalsRow != null) {
-            widgets.add(_buildTotalsRow(
-                totalsRow: reordered.totalsRow!, regular: regular, bold: bold));
+            widgets.add(_buildTotalsRow(totalsRow: reordered.totalsRow!, regular: regular, bold: bold));
           }
 
-          widgets.add(_buildSignatures(
-              organization: organization, regular: regular, bold: bold));
+          widgets.add(_buildSignatures(organization: organization, regular: regular, bold: bold));
 
           return widgets;
         },
@@ -899,9 +824,7 @@ class ExportService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.fromLTRB(25, 25, 25, 30),
         textDirection: pw.TextDirection.rtl,
-        theme: regular != null
-            ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular)
-            : null,
+        theme: regular != null ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular) : null,
         header: (context) => _buildHeader(
           organization: organization,
           logo: logo,
@@ -914,26 +837,16 @@ class ExportService {
           margin: const pw.EdgeInsets.only(top: 8),
           padding: const pw.EdgeInsets.only(top: 5),
           decoration: const pw.BoxDecoration(
-            border: pw.Border(
-                top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
+            border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
           ),
           child: pw.Directionality(
             textDirection: pw.TextDirection.ltr,
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}',
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(organization.shortName,
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(generatedAt,
-                    textDirection: pw.TextDirection.ltr,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}', textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(generatedAt, textDirection: pw.TextDirection.ltr, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
               ],
             ),
           ),
@@ -941,20 +854,12 @@ class ExportService {
         build: (context) {
           final widgets = <pw.Widget>[];
 
-          widgets.add(_buildSummaryCardsGrid(
-              cards: cards, regular: regular, bold: bold));
+          widgets.add(_buildSummaryCardsGrid(cards: cards, regular: regular, bold: bold));
 
           for (final section in sections) {
-            widgets.add(_buildSectionTitle(
-                title: section.title,
-                note: section.note,
-                regular: regular,
-                bold: bold));
+            widgets.add(_buildSectionTitle(title: section.title, note: section.note, regular: regular, bold: bold));
 
-            final reordered = _reorderTable(
-                headers: section.headers,
-                rows: section.rows,
-                totalsRow: section.totalsRow);
+            final reordered = _reorderTable(headers: section.headers, rows: section.rows, totalsRow: section.totalsRow);
 
             if (reordered.headers.isNotEmpty) {
               widgets.add(_buildTable(
@@ -967,15 +872,11 @@ class ExportService {
             }
 
             if (reordered.totalsRow != null) {
-              widgets.add(_buildTotalsRow(
-                  totalsRow: reordered.totalsRow!,
-                  regular: regular,
-                  bold: bold));
+              widgets.add(_buildTotalsRow(totalsRow: reordered.totalsRow!, regular: regular, bold: bold));
             }
           }
 
-          widgets.add(_buildSignatures(
-              organization: organization, regular: regular, bold: bold));
+          widgets.add(_buildSignatures(organization: organization, regular: regular, bold: bold));
 
           return widgets;
         },
@@ -1013,9 +914,7 @@ class ExportService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.fromLTRB(25, 25, 25, 30),
         textDirection: pw.TextDirection.rtl,
-        theme: regular != null
-            ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular)
-            : null,
+        theme: regular != null ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular) : null,
         header: (context) => _buildHeader(
           organization: organization,
           logo: logo,
@@ -1028,26 +927,16 @@ class ExportService {
           margin: const pw.EdgeInsets.only(top: 8),
           padding: const pw.EdgeInsets.only(top: 5),
           decoration: const pw.BoxDecoration(
-            border: pw.Border(
-                top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
+            border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
           ),
           child: pw.Directionality(
             textDirection: pw.TextDirection.ltr,
             child: pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}',
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(organization.shortName,
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(generatedAt,
-                    textDirection: pw.TextDirection.ltr,
-                    style: pw.TextStyle(
-                        font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}', textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(generatedAt, textDirection: pw.TextDirection.ltr, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
               ],
             ),
           ),
@@ -1055,39 +944,14 @@ class ExportService {
         build: (context) {
           final widgets = <pw.Widget>[];
 
-          // تقدير تقريبي لعدد صفوف الجدول التي تتّسع في صفحة A4
-          // واحدة مع الهامش/الرأس/التذييل الحاليين. إن لاحظت بعد
-          // التجربة انقسامًا لا يزال يحدث أو فراغًا كبيرًا في
-          // آخر الصفحة، عدّل هذا الرقم فقط.
-          const kMaxRowsPerPage = 24;
-          const kGroupHeaderCost = 2;
-          var usedRows = 0;
+          // عتبة أمان: أكبر عدد صفوف نحاول إبقاءه معًا في صفحة
+          // واحدة. لا حاجة لضبطها بدقة — إنها فقط لتفادي محاولة
+          // إبقاء مجموعة ضخمة جدًا (أكبر من صفحة فارغة كاملة)
+          // معًا بلا داعٍ، وهو أمر نادر الحدوث في هذه اللوائح.
+          const kMaxRowsToKeepTogether = 32;
 
           for (final group in groups) {
-            final groupCost = kGroupHeaderCost + group.rows.length;
-
-            // إن كانت إضافة هذه المجموعة ستتجاوز سعة الصفحة
-            // الحالية، ابدأ صفحة جديدة قبلها كاملة.
-            if (usedRows > 0 && usedRows + groupCost > kMaxRowsPerPage) {
-              widgets.add(pw.NewPage());
-              usedRows = 0;
-            }
-
-            widgets.add(_buildGroupHeader(
-              title: group.groupTitle,
-              count: group.rows.length,
-              regular: regular,
-              bold: bold,
-            ));
-
-            final headers = [
-              'ملاحظات',
-              'الهاتف',
-              'رقم البطاقة',
-              'الدليل المالي',
-              'الاسم',
-              '#'
-            ];
+            final headers = ['ملاحظات', 'الهاتف', 'رقم البطاقة', 'الدليل المالي', 'الاسم', '#'];
             final tableRows = <List<String>>[];
             for (var i = 0; i < group.rows.length; i++) {
               final r = group.rows[i];
@@ -1101,20 +965,45 @@ class ExportService {
               ]);
             }
 
-            widgets.add(_buildTable(
+            final groupHeader = _buildGroupHeader(
+              title: group.groupTitle,
+              count: group.rows.length,
+              regular: regular,
+              bold: bold,
+            );
+
+            final table = _buildTable(
               headers: headers,
               rows: tableRows,
               nameColumnIndex: 4,
               regular: regular,
               bold: bold,
-            ));
-            widgets.add(pw.SizedBox(height: 10));
+            );
 
-            usedRows += groupCost;
+            if (group.rows.length <= kMaxRowsToKeepTogether) {
+              // نلفّ الرأس والجدول في عنصر واحد غير قابل للانقسام
+              // (Column وليس Table مباشرة). إن لم تتّسع الكتلة
+              // كاملة فيما تبقّى من الصفحة الحالية، يدفعها محرك
+              // pdf تلقائيًا وبدقة إلى بداية الصفحة التالية —
+              // فلا يعود هناك فراغ كبير غير مبرَّر ولا انقسام
+              // لجدول مؤسسة واحدة بين صفحتين.
+              widgets.add(
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [groupHeader, table, pw.SizedBox(height: 10)],
+                ),
+              );
+            } else {
+              // مجموعة أكبر من أن تتّسع في صفحة واحدة فارغة: نسمح
+              // للجدول بالانقسام الطبيعي بين الصفحات (لا مفر من
+              // ذلك، لكنه أفضل من كتلة تتجاوز حدود الصفحة).
+              widgets.add(groupHeader);
+              widgets.add(table);
+              widgets.add(pw.SizedBox(height: 10));
+            }
           }
 
-          widgets.add(_buildSignatures(
-              organization: organization, regular: regular, bold: bold));
+          widgets.add(_buildSignatures(organization: organization, regular: regular, bold: bold));
 
           return widgets;
         },
