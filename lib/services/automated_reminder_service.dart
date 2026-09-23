@@ -44,12 +44,28 @@ class AutomatedReminderService {
     tz.setLocalLocation(tz.getLocation('Africa/Nouakchott'));
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: android);
+    // iOS/iPadOS: نطلب أذونات التنبيه صراحة عبر إعدادات Darwin (تُستخدم
+    // نفس الإعدادات لكل من iOS وmacOS). بدون هذا الفرع لا تُهيَّأ خطة
+    // الإشعارات إطلاقًا على iPhone، ولا تظهر أي تذكيرات هناك.
+    const iOS = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const settings = InitializationSettings(android: android, iOS: iOS);
     await _notifications.initialize(settings);
 
     final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
+
+    final iosPlugin = _notifications.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    await iosPlugin?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
     const channel = AndroidNotificationChannel(
       _channelId,
@@ -97,6 +113,11 @@ class AutomatedReminderService {
         channelDescription: 'تذكيرات يومي 24 و26 للمتأخرين عن الدفع',
         importance: Importance.high,
         priority: Priority.high,
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
       ),
     );
 
@@ -156,6 +177,11 @@ class AutomatedReminderService {
         importance: Importance.high,
         priority: Priority.high,
         styleInformation: BigTextStyleInformation(''),
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
       ),
     );
 

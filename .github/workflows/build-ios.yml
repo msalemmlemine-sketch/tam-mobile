@@ -1,0 +1,186 @@
+name: بناء iOS
+
+# يعمل تلقائيًا عند كل push إلى main، أو يدويًا بالضغط على "Run
+# workflow" من تبويب Actions في GitHub — تمامًا مثل build-signed-apk.yml.
+# يعمل على macos-latest لأن بناء iOS يتطلب Xcode، وهو غير متاح على
+# ubuntu/windows runners — بهذا لا تحتاج جهاز Mac محلي إطلاقًا.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  # ==============================================================
+  # 1) بناء تحقّقي (بدون توقيع Apple) — يعمل دائمًا، حتى بدون أي
+  #    Secrets من Apple. يثبت أن الكود Dart/Flutter وكل الحزم تبني
+  #    فعليًا على iOS. لا ينتج IPA قابلًا للتثبيت (Apple تمنع تثبيت
+  #    تطبيق غير موقَّع على جهاز حقيقي) — فقط تحقّق من سلامة البناء.
+  # ==============================================================
+  build-unsigned-verify:
+    runs-on: macos-latest
+    steps:
+      - name: سحب الكود
+        uses: actions/checkout@v4
+
+      - name: تثبيت Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: flutter analyze
+        run: flutter analyze
+
+      - name: flutter test
+        run: flutter test
+
+      - name: توليد مجلد ios (يطابق نسخة Flutter الحالية تمامًا)
+        # نفس منطق `flutter create --platforms=android` المستخدم في
+        # build-signed-apk.yml، لكن لمنصة iOS. لا يمسّ lib/ أو
+        # pubspec.yaml الموجودين مسبقًا — يضيف فقط مجلد ios الناقص.
+        run: flutter create --platforms=ios --org com.tam.mobile .
+
+      - name: تهيئة إعدادات iOS (اسم العرض، الصلاحيات، الحد الأدنى للإصدار)
+        run: python3 tools/configure_ios.py
+
+      - name: توليد أيقونة التطبيق
+        run: dart run flutter_launcher_icons
+
+      - name: تثبيت CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: بناء iOS بدون توقيع (تحقّق فقط)
+        run: >
+          flutter build ios --release --no-codesign
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+  # ==============================================================
+  # 2) بناء IPA موقَّع فعليًا — يعمل فقط إذا أضفت Secrets التوقيع من
+  #    Apple (انظر IOS_SIGNING.md لقائمة كل Secret ومصدره بالضبط).
+  #    بدونها هذه الوظيفة تُتخطى تلقائيًا (لا تفشل)، لأن التوقيع
+  #    يتطلب حساب Apple Developer مدفوعًا ولا يمكن اختراعه هنا.
+  # ==============================================================
+  build-signed-ipa:
+    needs: build-unsigned-verify
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    if: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 != '' && secrets.IOS_PROVISION_PROFILE_BASE64 != '' }}
+    steps:
+      - name: سحب الكود
+        uses: actions/checkout@v4
+
+      - name: تثبيت Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: توليد مجلد ios
+        run: flutter create --platforms=ios --org com.tam.mobile .
+
+      - name: تهيئة إعدادات iOS
+        run: python3 tools/configure_ios.py
+
+      - name: توليد أيقونة التطبيق
+        run: dart run flutter_launcher_icons
+
+      - name: تثبيت CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+
+      # -----------------------------------------------------------
+      # استيراد شهادة التوزيع (.p12) إلى Keychain مؤقت خاص بالـ runner.
+      # -----------------------------------------------------------
+      - name: استيراد شهادة Apple إلى Keychain مؤقت
+        env:
+          CERT_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERT_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/distribution.p12"
+
+          echo -n "$CERT_BASE64" | base64 --decode -o "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$CERT_PASSWORD" -A \
+            -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+
+      # -----------------------------------------------------------
+      # تثبيت ملف التوفير (Provisioning Profile) في مكانه المتوقع من Xcode.
+      # -----------------------------------------------------------
+      - name: تثبيت Provisioning Profile
+        env:
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+        run: |
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILE_DIR"
+          echo -n "$PROFILE_BASE64" | base64 --decode -o "$PROFILE_DIR/tam_mobile.mobileprovision"
+
+      - name: كتابة ExportOptions.plist
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          PROFILE_NAME: ${{ secrets.IOS_PROVISION_PROFILE_NAME }}
+          EXPORT_METHOD: ${{ secrets.IOS_EXPORT_METHOD }}
+        run: |
+          # ثابت ومطابق لِـ BUNDLE_ID المضبوط في tools/configure_ios.py —
+          # هو نفسه المعرّف الذي يجب تسجيله في Apple Developer Portal.
+          BUNDLE_ID="com.tam.mobile.app"
+          METHOD="${EXPORT_METHOD:-ad-hoc}"
+          cat > ios/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>$METHOD</string>
+            <key>teamID</key>
+            <string>$TEAM_ID</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$BUNDLE_ID</key>
+              <string>$PROFILE_NAME</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
+      - name: بناء IPA موقَّع (release)
+        run: >
+          flutter build ipa --release
+          --export-options-plist=ios/ExportOptions.plist
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: رفع IPA كمُرفق للتشغيل (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tam-mobile-release-ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 90
+
+      - name: نشر إصدار (Release) على GitHub يحوي الـ IPA مباشرة
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-build-${{ github.run_number }}
+          name: "نسخة iOS تجريبية #${{ github.run_number }}"
+          files: build/ios/ipa/*.ipa
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
