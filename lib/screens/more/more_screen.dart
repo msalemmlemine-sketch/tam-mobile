@@ -8,6 +8,7 @@ import '../auth_gate.dart';
 import '../auth/change_password_screen.dart';
 import '../institutions/institutions_list_screen.dart';
 import '../reports/reports_screen.dart';
+import '../settings/accounts_management_screen.dart';
 import '../settings/backup_screen.dart';
 import '../settings/member_import_screen.dart';
 import '../settings/organization_settings_screen.dart';
@@ -24,6 +25,7 @@ class MoreScreen extends StatelessWidget {
     final canInstitutions = PermissionService.can(Permission.manageInstitutions) ||
         PermissionService.can(Permission.editInstitutionStats);
     final canImport = PermissionService.can(Permission.importData);
+    final canManageSettings = PermissionService.can(Permission.manageSettings);
     return Scaffold(
       appBar: AppBar(title: Text(role.label)),
       body: ListView(padding: const EdgeInsets.fromLTRB(12, 8, 12, 100), children: [
@@ -31,6 +33,13 @@ class MoreScreen extends StatelessWidget {
           AppSection(title: 'الإدارة', child: Card(child: Column(children: [
             if (canReports) _Item(icon: Icons.bar_chart_rounded, title: 'التقارير والتحليلات', subtitle: 'تقارير المنتسبين والمتأخرات والصندوق والمؤسسات', onTap: () => _open(context, const ReportsScreen())),
             if (canInstitutions) _Item(icon: Icons.apartment_rounded, title: 'المؤسسات', subtitle: 'إدارة المؤسسات والطاقم ونسب الانتساب', onTap: () => _open(context, const InstitutionsListScreen())),
+          ]))),
+        ],
+        if (canManageSettings) ...[
+          const SizedBox(height: 8),
+          AppSection(title: 'إعدادات النظام', child: Card(child: Column(children: [
+            _Item(icon: Icons.image_outlined, title: 'شعار النقابة', subtitle: 'رفع أو تغيير شعار المنظمة في التقارير', onTap: () => _open(context, const OrganizationSettingsScreen())),
+            _Item(icon: Icons.admin_panel_settings_outlined, title: 'إدارة الحسابات', subtitle: 'الأدوار، التفعيل، كلمات المرور، حسابات المنتسبين', onTap: () => _open(context, const AccountsManagementScreen())),
           ]))),
         ],
         if (canImport) ...[
