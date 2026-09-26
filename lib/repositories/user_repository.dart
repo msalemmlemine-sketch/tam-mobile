@@ -63,12 +63,20 @@ class UserRepository {
     return AppUser.fromMap(rows.first);
   }
 
-
   Future<AppUser?> getById(int id) async {
     final db = await _db;
     final rows = await db.query('users', where: 'id = ?', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return AppUser.fromMap(rows.first);
+  }
+
+  /// كل الحسابات — تُستخدم من شاشة إدارة الحسابات (المدير فقط).
+  /// مرتّبة بحيث تظهر الحسابات الإدارية أولًا ثم حسابات المنتسبين،
+  /// وداخل كل مجموعة أبجديًا حسب اسم العرض.
+  Future<List<AppUser>> getAll() async {
+    final db = await _db;
+    final rows = await db.query('users', orderBy: 'role = "member" ASC, display_name COLLATE NOCASE ASC');
+    return rows.map(AppUser.fromMap).toList();
   }
 
   Future<void> recordFailedAttempt(int userId, int attempts,
@@ -123,6 +131,70 @@ class UserRepository {
       passwordHash: _hash(password, salt),
       passwordSalt: salt,
     );
+  }
+
+  /// تفعيل أو تعطيل حساب — الوسيلة المعتمدة لـ"حذف" حساب بدل الحذف
+  /// الفعلي في وضع السحابة (انظر شرح Option B في المحادثة مع المدير:
+  /// تعطيل فوري وشامل على كل جهاز جديد أو متصل بالإنترنت).
+  Future<void> setActive(int userId, bool isActive) async {
+    final db = await _db;
+    await db.update(
+      'users',
+      {'is_active': isActive ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  Future<void> updateRole(int userId, AppRole role) async {
+    final db = await _db;
+    await db.update(
+      'users',
+      {'role': role.key},
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+  }
+
+  /// حذف فعلي للحساب المحلي فقط. لا يُستخدم مطلقًا في وضع السحابة
+  /// (CloudConfig.enabled) لأن صف users المحلي هناك هو نسخة مخزَّنة
+  /// مؤقتًا (cache) لحساب Supabase الحقيقي — حذفها محليًا لا يحذف
+  /// الحساب الفعلي في Supabase، فقط يُفقد الجهاز نسخته المحلية
+  /// المخزَّنة، ما قد يُربك تسجيل الدخول التالي. استخدم setActive
+  /// بدلًا منه في وضع السحابة.
+  Future<void> deleteLocalUser(int userId) async {
+    final db = await _db;
+    await db.delete('users', where: 'id = ?', whereArgs: [userId]);
+  }
+
+  /// إنشاء حساب محلي جديد يدويًا من شاشة إدارة الحسابات (مثلاً حساب
+  /// إداري إضافي، أو حساب منتسب بكلمة مرور يحددها المدير بنفسه بدل
+  /// الآلية التلقائية الاعتيادية القائمة على رقم الهاتف).
+  /// يرمي استثناءً عند تكرار اسم المستخدم (قيد UNIQUE) — على الواجهة
+  /// عرضه برسالة مفهومة بدل تركه يظهر كخطأ تقني خام.
+  Future<AppUser> createLocalUser({
+    required String username,
+    required String password,
+    required String displayName,
+    required AppRole role,
+    int? memberId,
+    bool mustChangePassword = true,
+  }) async {
+    final db = await _db;
+    final salt = _generateSalt();
+    final id = await db.insert('users', {
+      'username': username.trim(),
+      'password_hash': _hash(password, salt),
+      'password_salt': salt,
+      'display_name': displayName.trim(),
+      'role': role.key,
+      'must_change_password': mustChangePassword ? 1 : 0,
+      'failed_attempts': 0,
+      'member_id': memberId,
+      'is_active': 1,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+    return (await getById(id))!;
   }
 
   /// يُنشئ أو يُحدِّث نسخة محلية (SQLite) لمستخدم مُصادَق عليه عبر
@@ -188,7 +260,6 @@ class UserRepository {
     }, where: 'id = ?', whereArgs: [id]);
     return (await getById(id))!;
   }
-
 
   Future<AppUser?> getByMemberId(int memberId) async {
     final db = await _db;
@@ -258,4 +329,3 @@ class UserRepository {
     }
   }
 }
-
