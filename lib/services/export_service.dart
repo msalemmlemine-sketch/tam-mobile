@@ -199,20 +199,30 @@ class ExportService {
   // ============================================================
 
   Future<pw.ImageProvider?> _loadLogo() async {
+    // أولاً: الشعار الذي يضبطه المستخدم من شاشة الإعدادات.
     try {
       final path = await _getSetting('org_logo_path');
-      if (path == null || path.isEmpty) return null;
+      if (path != null && path.isNotEmpty) {
+        final file = File(path);
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          if (bytes.isNotEmpty) return pw.MemoryImage(bytes);
+        }
+      }
+    } catch (_) {}
 
-      final file = File(path);
-      if (!await file.exists()) return null;
+    // ثانيًا (احتياطي): شعار افتراضي مضمّن داخل أصول التطبيق، حتى
+    // يظهر شعار في التقرير دومًا ولو لم يضبط المستخدم شيئًا بعد.
+    // يجب إضافة صورة الشعار في المسار التالي وتصريحها في
+    // pubspec.yaml تحت flutter/assets، وإلا سيُتجاهل هذا الجزء
+    // بصمت وتبقى بقية التقرير تعمل بشكل طبيعي.
+    try {
+      final data = await rootBundle.load('assets/images/default_logo.png');
+      final bytes = data.buffer.asUint8List();
+      if (bytes.isNotEmpty) return pw.MemoryImage(bytes);
+    } catch (_) {}
 
-      final bytes = await file.readAsBytes();
-      if (bytes.isEmpty) return null;
-
-      return pw.MemoryImage(bytes);
-    } catch (_) {
-      return null;
-    }
+    return null;
   }
 
   // ============================================================
@@ -456,43 +466,63 @@ class ExportService {
     required pw.Font? regular,
     required pw.Font? bold,
   }) {
-    final titleStyle = pw.TextStyle(font: bold ?? regular, fontSize: 17, fontWeight: pw.FontWeight.bold);
-    final organizationStyle = pw.TextStyle(font: bold ?? regular, fontSize: 12, fontWeight: pw.FontWeight.bold);
+    const accentColor = PdfColor.fromInt(0xFF0F5C52);
+
+    final titleStyle = pw.TextStyle(font: bold ?? regular, fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.white);
+    final organizationStyle = pw.TextStyle(font: bold ?? regular, fontSize: 13.5, fontWeight: pw.FontWeight.bold, color: accentColor);
     final smallStyle = pw.TextStyle(font: regular, fontSize: 8.5, color: PdfColors.grey700);
 
     return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 10),
+      margin: const pw.EdgeInsets.only(bottom: 12),
       child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          if (logo != null) ...[
-            pw.Container(
-              width: 58,
-              height: 58,
-              padding: const pw.EdgeInsets.all(2),
-              child: pw.Image(logo, fit: pw.BoxFit.contain),
-            ),
-            pw.SizedBox(height: 5),
-          ],
-          pw.Text(organization.name, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: organizationStyle),
-          if (organization.shortName.isNotEmpty) ...[
-            pw.SizedBox(height: 2),
-            pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: smallStyle),
-          ],
-          pw.SizedBox(height: 7),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(organization.name, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.right, style: organizationStyle),
+                    if (organization.shortName.isNotEmpty) ...[
+                      pw.SizedBox(height: 2),
+                      pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.right, style: smallStyle),
+                    ],
+                  ],
+                ),
+              ),
+              if (logo != null) ...[
+                pw.SizedBox(width: 10),
+                pw.Container(
+                  width: 56,
+                  height: 56,
+                  padding: const pw.EdgeInsets.all(3),
+                  decoration: pw.BoxDecoration(
+                    shape: pw.BoxShape.circle,
+                    color: PdfColors.white,
+                    border: pw.Border.all(color: accentColor, width: 1.1),
+                  ),
+                  child: pw.ClipOval(child: pw.Image(logo, fit: pw.BoxFit.cover)),
+                ),
+              ],
+            ],
+          ),
+          pw.SizedBox(height: 9),
           pw.Container(
             width: double.infinity,
-            padding: const pw.EdgeInsets.symmetric(vertical: 7, horizontal: 10),
+            padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: const pw.BoxDecoration(
-              border: pw.Border(
-                top: pw.BorderSide(color: PdfColors.grey600, width: 0.7),
-                bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.7),
-              ),
+              color: accentColor,
+              borderRadius: pw.BorderRadius.all(pw.Radius.circular(5)),
             ),
             child: pw.Text(title, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: titleStyle),
           ),
           pw.SizedBox(height: 5),
-          pw.Text('تاريخ الإصدار: $generatedAt', textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: smallStyle),
+          pw.Align(
+            alignment: pw.Alignment.centerLeft,
+            child: pw.Text('تاريخ الإصدار: $generatedAt', textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.left, style: smallStyle),
+          ),
         ],
       ),
     );
@@ -944,12 +974,6 @@ class ExportService {
         build: (context) {
           final widgets = <pw.Widget>[];
 
-          // عتبة أمان: أكبر عدد صفوف نحاول إبقاءه معًا في صفحة
-          // واحدة. لا حاجة لضبطها بدقة — إنها فقط لتفادي محاولة
-          // إبقاء مجموعة ضخمة جدًا (أكبر من صفحة فارغة كاملة)
-          // معًا بلا داعٍ، وهو أمر نادر الحدوث في هذه اللوائح.
-          const kMaxRowsToKeepTogether = 32;
-
           for (final group in groups) {
             final headers = ['ملاحظات', 'الهاتف', 'رقم البطاقة', 'الدليل المالي', 'الاسم', '#'];
             final tableRows = <List<String>>[];
@@ -980,27 +1004,22 @@ class ExportService {
               bold: bold,
             );
 
-            if (group.rows.length <= kMaxRowsToKeepTogether) {
-              // نلفّ الرأس والجدول في عنصر واحد غير قابل للانقسام
-              // (Column وليس Table مباشرة). إن لم تتّسع الكتلة
-              // كاملة فيما تبقّى من الصفحة الحالية، يدفعها محرك
-              // pdf تلقائيًا وبدقة إلى بداية الصفحة التالية —
-              // فلا يعود هناك فراغ كبير غير مبرَّر ولا انقسام
-              // لجدول مؤسسة واحدة بين صفحتين.
-              widgets.add(
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: [groupHeader, table, pw.SizedBox(height: 10)],
-                ),
-              );
-            } else {
-              // مجموعة أكبر من أن تتّسع في صفحة واحدة فارغة: نسمح
-              // للجدول بالانقسام الطبيعي بين الصفحات (لا مفر من
-              // ذلك، لكنه أفضل من كتلة تتجاوز حدود الصفحة).
-              widgets.add(groupHeader);
-              widgets.add(table);
-              widgets.add(pw.SizedBox(height: 10));
-            }
+            // ملاحظة: كان يُستخدم سابقًا تغليف الرأس والجدول داخل
+            // pw.Column واحد لمنع انقسام جدول أي مؤسسة بين
+            // صفحتين. لكن هذا التغليف "الذرّي" كان يتسبب أحيانًا
+            // في ظهور صفحة فارغة كاملة: عندما لا تتسع الكتلة فيما
+            // تبقى من الصفحة الحالية، تُدفع بأكملها إلى الصفحة
+            // التالية، وأحيانًا يُخطئ محرك pdf في إعادة حساب
+            // المساحة على الصفحة الجديدة فيدفعها مرة أخرى، تاركًا
+            // صفحة فارغة تمامًا خلفها (بلا رأس مجموعة ولا جدول).
+            //
+            // لتفادي هذا الخلل نهائيًا: لا نُغلّف بعد الآن، ونضيف
+            // الرأس والجدول كعنصرين منفصلين. الجدول (pw.Table) قد
+            // ينقسم بين صفحتين إن لزم الأمر، وهذا أهون بكثير من
+            // صفحة فارغة كاملة في التقرير.
+            widgets.add(groupHeader);
+            widgets.add(table);
+            widgets.add(pw.SizedBox(height: 10));
           }
 
           widgets.add(_buildSignatures(organization: organization, regular: regular, bold: bold));
