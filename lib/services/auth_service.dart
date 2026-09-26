@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_role.dart';
@@ -34,6 +37,30 @@ class AuthService {
     return v.contains('@') ? v : '$v@tam.local';
   }
 
+  /// يحدد إن كان الاستثناء ناتجًا عن تعذّر الوصول إلى الشبكة/الخادم
+  /// (بلا إنترنت، DNS، مهلة اتصال، Supabase غير قابل للوصول) بدل
+  /// خطأ حقيقي متعلق ببيانات الدخول نفسها. فقط في هذه الحالة نلجأ
+  /// لمسار الدخول المحلي كخطة بديلة — أي فشل آخر (بيانات خاطئة،
+  /// حساب مؤكَّد بشكل خاطئ، إلخ) يجب أن يبقى بلا تجاوز إلى المحلي.
+  bool _isNetworkFailure(Object e) {
+    if (e is AuthRetryableFetchException) return true; // فشل شبكة من supabase_flutter نفسها
+    if (e is SocketException) return true;
+    if (e is TimeoutException) return true;
+    if (e is HttpException) return true;
+    // بعض حزم الشبكة (dio/http) ترمي أنواعًا أخرى لا تُصنَّف ضمن ما
+    // سبق؛ نتحقق أيضًا من نص الخطأ كخط دفاع أخير غير مثالي لكنه
+    // عملي وآمن (لا يُسقِط بيانات دخول خاطئة كفشل شبكة لأن رسائل
+    // Supabase لبيانات الدخول الخاطئة لا تحتوي هذه العبارات).
+    final text = e.toString().toLowerCase();
+    return text.contains('socketexception') ||
+        text.contains('failed host lookup') ||
+        text.contains('network is unreachable') ||
+        text.contains('connection refused') ||
+        text.contains('connection timed out') ||
+        text.contains('timeoutexception') ||
+        text.contains('clientexception');
+  }
+
   Future<({LoginResult result, AppUser? user})> login(
       String username, String password) async {
     lastError = null;
@@ -66,22 +93,39 @@ class AuthService {
         }
         return (result: LoginResult.success, user: user);
       } on AuthException catch (e) {
-        // هذا هو الخطأ الفعلي القادم من Supabase (بيانات خاطئة، بريد
-        // غير مؤكد، مستخدم غير موجود، إلخ) — كان يُبتلع سابقًا بصمت.
+        // خطأ صادر فعليًا عن منطق المصادقة في Supabase (بيانات دخول
+        // خاطئة، بريد غير مؤكَّد، مستخدم غير موجود). هذا ليس فشل
+        // شبكة، فلا داعي لتجربة الدخول المحلي — الخطأ حقيقي ويجب
+        // إظهاره كما هو.
         lastError = 'AuthException: ${e.message} (status: ${e.statusCode})';
         return (result: LoginResult.wrongPassword, user: null);
       } catch (e) {
-        // أي خطأ آخر: انقطاع شبكة، فشل DNS، Supabase غير مهيأ، إلخ.
-        lastError = '${e.runtimeType}: $e';
-        return (result: LoginResult.wrongPassword, user: null);
+        if (!_isNetworkFailure(e)) {
+          // خطأ غير متوقع لكنه ليس فشل شبكة واضحًا (مثل خطأ برمجي
+          // داخلي) — نُبقي السلوك القديم بإرجاع فشل فورًا بدل
+          // إخفائه خلف مسار محلي قد يُخفي علة حقيقية.
+          lastError = '${e.runtimeType}: $e';
+          return (result: LoginResult.wrongPassword, user: null);
+        }
+        // فشل شبكة فعلي (لا إنترنت، DNS، مهلة اتصال، إلخ): هذا هو
+        // الإصلاح الجوهري — بدل إرجاع فشل فوري بلا أي محاولة أخرى،
+        // ننتقل تلقائيًا لمسار الدخول المحلي عبر SQLite أدناه، بنفس
+        // الأسلوب المستخدم أصلًا في وضع "السحابة معطّلة كليًا".
+        lastError = 'فشل الاتصال بالشبكة (${e.runtimeType}: $e) — المتابعة بالدخول المحلي.';
       }
     }
 
-    // وضع التوافق المحلي القديم.
+    // وضع الدخول المحلي — يُستخدم إما لأن السحابة معطّلة كليًا في
+    // هذا البناء، أو لأن محاولة الدخول السحابي فشلت بسبب انعدام
+    // الشبكة تحديدًا (انظر الفرع أعلاه).
     final user = await _users.getByUsername(username.trim());
     if (user == null) {
-      lastError = 'لا يوجد مستخدم محلي بهذا الاسم في SQLite.';
+      lastError ??= 'لا يوجد مستخدم محلي بهذا الاسم في SQLite.';
       return (result: LoginResult.wrongPassword, user: null);
+    }
+    if (!user.isActive) {
+      lastError = 'الحساب معطّل محليًا (is_active = false).';
+      return (result: LoginResult.locked, user: user);
     }
     final ok = await _users.verifyLocalPassword(user, password);
     if (!ok) {
