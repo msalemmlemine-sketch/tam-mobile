@@ -1,172 +1,140 @@
 import 'package:flutter/material.dart';
 
+import '../../models/app_role.dart';
+import '../../models/district.dart';
 import '../../models/institution.dart';
+import '../../repositories/district_repository.dart';
 import '../../repositories/institution_repository.dart';
-import '../../services/export_service.dart';
+import '../../services/permission_service.dart';
+import 'institution_form_screen.dart';
 
-class InstitutionsReportScreen extends StatefulWidget {
-  const InstitutionsReportScreen({super.key});
+class InstitutionsListScreen extends StatefulWidget {
+  const InstitutionsListScreen({super.key});
+
   @override
-  State<InstitutionsReportScreen> createState() => _InstitutionsReportScreenState();
+  State<InstitutionsListScreen> createState() => _InstitutionsListScreenState();
 }
 
-class _InstitutionsReportScreenState extends State<InstitutionsReportScreen> {
-  final _repo = InstitutionRepository();
-  final _exportService = ExportService();
-  late Future<List<InstitutionAnalytics>> _future;
+class _InstitutionsListScreenState extends State<InstitutionsListScreen> {
+  final _institutionRepo = InstitutionRepository();
+  final _districtRepo = DistrictRepository();
+  late Future<_Data> _future;
 
   @override
-  void initState() { super.initState(); _future = _repo.getAnalytics(); }
-
-  List<InstitutionAnalytics> _sorted(List<InstitutionAnalytics> rows) {
-    final sorted = [...rows];
-    sorted.sort((a, b) {
-      final d = a.districtName.compareTo(b.districtName);
-      return d != 0 ? d : a.institution.name.compareTo(b.institution.name);
-    });
-    return sorted;
+  void initState() {
+    super.initState();
+    _future = _load();
   }
 
-  List<String> get _headers =>
-      ['المقاطعة', 'المؤسسة', 'الطاقم', 'TAM', 'SIPES', 'SNES', 'نقابات أخرى', 'غير نقابيين', 'نسبة TAM'];
-
-  List<String> _rowValues(InstitutionAnalytics a) {
-    final p = a.tamPercentage;
-    return [
-      a.districtName,
-      a.institution.name,
-      '${a.institution.totalStaff}',
-      '${a.tamMembers}',
-      '${a.institution.sipesMembers}',
-      '${a.institution.snesMembers}',
-      '${a.institution.otherUnionMembers}',
-      '${a.institution.nonUnionStaff}',
-      p == null ? '—' : '${p.toStringAsFixed(1)}%',
-    ];
+  Future<_Data> _load() async {
+    final analytics = await _institutionRepo.getAnalytics();
+    final districts = await _districtRepo.getAll();
+    return _Data(analytics: analytics, districts: districts);
   }
 
-  Future<void> _exportCsv(List<InstitutionAnalytics> rows) async {
-    await _exportService.exportCsv(
-      fileName: 'تقرير_المؤسسات.csv',
-      headers: _headers,
-      rows: _sorted(rows).map(_rowValues).toList(),
-    );
-  }
-
-  Future<void> _exportPdf(List<InstitutionAnalytics> rows) async {
-    final staff = rows.fold<int>(0, (s, a) => s + a.institution.totalStaff);
-    final tam = rows.fold<int>(0, (s, a) => s + a.tamMembers);
-    final sipes = rows.fold<int>(0, (s, a) => s + a.institution.sipesMembers);
-    final snes = rows.fold<int>(0, (s, a) => s + a.institution.snesMembers);
-    final other = rows.fold<int>(0, (s, a) => s + a.institution.otherUnionMembers);
-    final non = rows.fold<int>(0, (s, a) => s + a.institution.nonUnionStaff);
-    final p = staff > 0 ? tam * 100 / staff : null;
-
-    await _exportService.exportPdfReport(
-      fileName: 'تقرير_المؤسسات.pdf',
-      title: 'تقرير المؤسسات والتحليل',
-      cards: [
-        ReportSummaryCard(title: 'المؤسسات', value: '${rows.length}'),
-        ReportSummaryCard(title: 'إجمالي الطاقم', value: '$staff'),
-        ReportSummaryCard(title: 'TAM / APM', value: '$tam'),
-        ReportSummaryCard(title: 'SIPES', value: '$sipes'),
-        ReportSummaryCard(title: 'SNES', value: '$snes'),
-        ReportSummaryCard(
-          title: 'نسبة TAM العامة',
-          value: p == null ? '—' : '${p.toStringAsFixed(1)}%',
-        ),
-      ],
-      sections: [
-        ReportTableSection(
-          title: 'كل المؤسسات (مرتَّبة حسب المقاطعة)',
-          headers: _headers,
-          rows: _sorted(rows).map(_rowValues).toList(),
-        ),
-      ],
-    );
-  }
+  void _refresh() => setState(() => _future = _load());
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('تقرير المؤسسات'), actions: [
-        FutureBuilder<List<InstitutionAnalytics>>(
-          future: _future,
-          builder: (context, snapshot) {
-            final rows = snapshot.data;
-            return Row(children: [
-              IconButton(
-                onPressed: rows == null ? null : () => _exportPdf(rows),
-                icon: const Icon(Icons.picture_as_pdf_outlined),
-                tooltip: 'تصدير PDF',
-              ),
-              IconButton(
-                onPressed: rows == null ? null : () => _exportCsv(rows),
-                icon: const Icon(Icons.table_chart_outlined),
-                tooltip: 'تصدير CSV',
-              ),
-            ]);
-          },
-        ),
-        IconButton(onPressed: () => setState(() => _future = _repo.getAnalytics()), icon: const Icon(Icons.refresh_rounded)),
-      ]),
-      body: FutureBuilder<List<InstitutionAnalytics>>(
+      appBar: AppBar(title: const Text('المؤسسات'), actions: [IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh_rounded), tooltip: 'تحديث')]),
+      floatingActionButton: PermissionService.can(Permission.manageInstitutions)
+          ? FloatingActionButton.extended(onPressed: () async { final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const InstitutionFormScreen())); if (saved == true) _refresh(); }, icon: const Icon(Icons.add), label: const Text('مؤسسة'))
+          : null,
+      body: FutureBuilder<_Data>(
         future: _future,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return Center(child: Text('تعذر إنشاء التقرير: ${snapshot.error}'));
-          final rows = snapshot.data!;
-          final staff = rows.fold<int>(0, (s, a) => s + a.institution.totalStaff);
-          final tam = rows.fold<int>(0, (s, a) => s + a.tamMembers);
-          final sipes = rows.fold<int>(0, (s, a) => s + a.institution.sipesMembers);
-          final snes = rows.fold<int>(0, (s, a) => s + a.institution.snesMembers);
-          final other = rows.fold<int>(0, (s, a) => s + a.institution.otherUnionMembers);
-          final non = rows.fold<int>(0, (s, a) => s + a.institution.nonUnionStaff);
-          final withTam = rows.where((a) => a.tamMembers > 0).length;
-          final withoutTam = rows.length - withTam;
-          return ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 32), children: [
-            _summary(context, rows.length, withTam, withoutTam, staff, tam, sipes, snes, other, non),
-            const SizedBox(height: 12),
-            const Text('المؤسسات التي بها منتسبون', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            ...rows.where((a) => a.tamMembers > 0).map((a) => _row(context, a)),
-            const SizedBox(height: 18),
-            const Text('المؤسسات التي ليس بها منتسبون', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            ...rows.where((a) => a.tamMembers == 0).map((a) => _row(context, a)),
-          ]);
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) return Center(child: Text('تعذر تحميل المؤسسات: ${snapshot.error}'));
+          final data = snapshot.data!;
+          final totalStaff = data.analytics.fold<int>(0, (s, a) => s + a.institution.totalStaff);
+          final tam = data.analytics.fold<int>(0, (s, a) => s + a.tamMembers);
+          final sipes = data.analytics.fold<int>(0, (s, a) => s + a.institution.sipesMembers);
+          final snes = data.analytics.fold<int>(0, (s, a) => s + a.institution.snesMembers);
+          final other = data.analytics.fold<int>(0, (s, a) => s + a.institution.otherUnionMembers);
+          final non = data.analytics.fold<int>(0, (s, a) => s + a.institution.nonUnionStaff);
+          final withMembers = data.analytics.where((a) => a.tamMembers > 0).length;
+          final withoutMembers = data.analytics.length - withMembers;
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+            children: [
+              _summary(context, data.analytics.length, withMembers, withoutMembers, totalStaff, tam),
+              const SizedBox(height: 12),
+              if (data.analytics.isNotEmpty) ...[
+                _classificationCard(context, totalStaff, tam, sipes, snes, other, non),
+                const SizedBox(height: 12),
+              ],
+              ..._districtSections(context, data.analytics),
+            ],
+          );
         },
       ),
     );
   }
 
-  Widget _summary(BuildContext context, int institutions, int withTam, int withoutTam, int staff, int tam, int sipes, int snes, int other, int non) {
+  Widget _summary(BuildContext context, int institutions, int withMembers, int withoutMembers, int staff, int tam) {
     final p = staff > 0 ? tam * 100 / staff : null;
     return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const Text('الملخص التنفيذي', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+      const Text('ملخص المؤسسات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
       const SizedBox(height: 12),
-      Text('إجمالي المؤسسات: $institutions'),
-      Text('مؤسسات بها منتسبون: $withTam'),
-      Text('مؤسسات بلا منتسبين: $withoutTam'),
-      Text('إجمالي الطاقم: $staff'),
-      Text('منتسبو TAM / APM: $tam'),
-      Text('منتسبو SIPES: $sipes'),
-      Text('منتسبو SNES: $snes'),
-      Text('منتسبون لنقابات أخرى: $other'),
-      Text('غير النقابيين: $non'),
-      const Divider(height: 22),
-      Text(p == null ? 'نسبة TAM العامة: غير محددة' : 'نسبة أساتذة TAM العامة: ${p.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.primary)),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        _chip('المؤسسات', institutions), _chip('بها منتسبون', withMembers), _chip('بدون منتسبين', withoutMembers), _chip('إجمالي الطاقم', staff), _chip('TAM / APM', tam),
+      ]),
+      const SizedBox(height: 12),
+      Text(p == null ? 'نسبة TAM العامة: غير محددة' : 'نسبة أساتذة TAM العامة: ${p.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.w800)),
     ])));
   }
 
-  Widget _row(BuildContext context, InstitutionAnalytics a) {
-    final p = a.tamPercentage;
-    return Card(margin: const EdgeInsets.only(bottom: 8), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [Expanded(child: Text(a.institution.name, style: const TextStyle(fontWeight: FontWeight.w900))), Text(a.districtName, style: const TextStyle(fontSize: 12))]),
-      const SizedBox(height: 7),
-      Text('الطاقم: ${a.institution.totalStaff}  |  TAM: ${a.tamMembers}  |  SIPES: ${a.institution.sipesMembers}  |  SNES: ${a.institution.snesMembers}  |  نقابات أخرى: ${a.institution.otherUnionMembers}  |  غير نقابيين: ${a.institution.nonUnionStaff}'),
-      const SizedBox(height: 5),
-      Text('نسبة TAM: ${p == null ? 'غير محددة' : '${p.toStringAsFixed(1)}%'}', style: TextStyle(fontWeight: FontWeight.w800, color: p != null && p >= 60 ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error)),
+  Widget _classificationCard(BuildContext context, int staff, int tam, int sipes, int snes, int other, int non) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const Text('تركيب طواقم المؤسسات', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 10),
+      _barLine(context, 'TAM / APM', tam, staff, scheme.primary),
+      _barLine(context, 'SIPES', sipes, staff, scheme.tertiary),
+      _barLine(context, 'SNES', snes, staff, scheme.tertiary),
+      _barLine(context, 'نقابات أخرى', other, staff, scheme.tertiary),
+      _barLine(context, 'غير نقابيين', non, staff, scheme.secondary),
     ])));
   }
+
+  Widget _barLine(BuildContext context, String label, int value, int total, Color color) {
+    final p = total > 0 ? value / total : 0.0;
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label), Text(total > 0 ? '$value (${(p * 100).toStringAsFixed(1)}%)' : '$value')]), const SizedBox(height: 4), ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(value: p.clamp(0, 1), minHeight: 8, color: color))]));
+  }
+
+  List<Widget> _districtSections(BuildContext context, List<InstitutionAnalytics> rows) {
+    final byDistrict = <String, List<InstitutionAnalytics>>{};
+    for (final row in rows) { (byDistrict[row.districtName] ??= []).add(row); }
+    final result = <Widget>[];
+    for (final entry in byDistrict.entries) {
+      final list = entry.value;
+      final tam = list.fold<int>(0, (s, a) => s + a.tamMembers);
+      final staff = list.fold<int>(0, (s, a) => s + a.institution.totalStaff);
+      result.add(Padding(padding: const EdgeInsets.fromLTRB(4, 10, 4, 8), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(entry.key, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), Text('${list.length} مؤسسة · $tam TAM', style: const TextStyle(fontWeight: FontWeight.w700))])));
+      for (final a in list) result.add(_institutionTile(context, a));
+      final p = staff > 0 ? tam * 100 / staff : null;
+      result.add(Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(p == null ? 'نسبة TAM في المقاطعة: غير محددة' : 'نسبة TAM في المقاطعة: ${p.toStringAsFixed(1)}%', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w700))));
+    }
+    return result;
+  }
+
+  Widget _institutionTile(BuildContext context, InstitutionAnalytics a) {
+    final p = a.tamPercentage;
+    final status = a.tamMembers == 0 ? 'لا يوجد منتسبون' : p == null ? 'الطاقم غير محدد' : p >= 80 ? 'انتساب مرتفع' : p >= 60 ? 'جيد' : p >= 40 ? 'متوسط' : 'يحتاج متابعة';
+    final color = a.tamMembers == 0 ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary;
+    return Card(margin: const EdgeInsets.only(bottom: 8), child: InkWell(borderRadius: BorderRadius.circular(20), onTap: () async { final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => InstitutionFormScreen(institution: a.institution))); if (saved == true) _refresh(); }, child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [Expanded(child: Text(a.institution.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15))), Text(status, style: TextStyle(color: color, fontWeight: FontWeight.w800))]),
+      const SizedBox(height: 9),
+      Wrap(spacing: 14, runSpacing: 6, children: [Text('الطاقم: ${a.institution.totalStaff}'), Text('TAM: ${a.tamMembers}'), Text('SIPES: ${a.institution.sipesMembers}'), Text('SNES: ${a.institution.snesMembers}'), Text('نقابات أخرى: ${a.institution.otherUnionMembers}'), Text('غير نقابيين: ${a.institution.nonUnionStaff}'), Text('النسبة: ${p == null ? '—' : '${p.toStringAsFixed(1)}%'}')]),
+    ]))));
+  }
+
+  Widget _chip(String label, int value) => Chip(label: Text('$label: $value'), visualDensity: VisualDensity.compact);
+}
+
+class _Data {
+  final List<InstitutionAnalytics> analytics;
+  final List<District> districts;
+  _Data({required this.analytics, required this.districts});
 }
