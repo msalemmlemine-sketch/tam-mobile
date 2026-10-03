@@ -2107,3 +2107,4 @@ class ReportGroupedListSection {
     required this.rows,
   });
 }
+
