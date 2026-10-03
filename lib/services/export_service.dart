@@ -146,7 +146,9 @@ class ExportService {
         );
         if (rows.isNotEmpty) {
           final value = rows.first['display_name']?.toString().trim();
-          if (value != null && value.isNotEmpty) organizationSecretary = value;
+          if (value != null && value.isNotEmpty) {
+            organizationSecretary = value;
+          }
         }
       }
 
@@ -160,7 +162,9 @@ class ExportService {
         );
         if (rows.isNotEmpty) {
           final value = rows.first['display_name']?.toString().trim();
-          if (value != null && value.isNotEmpty) regionalCaptain = value;
+          if (value != null && value.isNotEmpty) {
+            regionalCaptain = value;
+          }
         }
       }
 
@@ -174,16 +178,12 @@ class ExportService {
         );
         if (rows.isNotEmpty) {
           final value = rows.first['display_name']?.toString().trim();
-          if (value != null && value.isNotEmpty) financeSecretary = value;
+          if (value != null && value.isNotEmpty) {
+            financeSecretary = value;
+          }
         }
       }
     } catch (_) {}
-
-    // قيم افتراضية احتياطية حتى تظهر التوقيعات دومًا حتى لو لم
-    // تُضبط الإعدادات أو جدول users بعد.
-    organizationSecretary ??= 'محمد سالم ابن عمر';
-    regionalCaptain ??= 'الشيخ سيد اعل';
-    financeSecretary ??= 'عيسى بابا محمد أعمش';
 
     return _OrganizationInfo(
       name: organizationName,
@@ -321,7 +321,9 @@ class ExportService {
     ];
 
     List<String> reorderRow(List<String> row) {
-      return indexes.map((index) => index < row.length ? row[index] : '').toList();
+      return indexes
+          .map((index) => index < row.length ? row[index] : '')
+          .toList();
     }
 
     return _ReorderedTable(
@@ -348,17 +350,26 @@ class ExportService {
     final style = pw.TextStyle(
       font: font,
       fontSize: header ? 9.5 : 9,
-      fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
+      fontWeight: header
+          ? pw.FontWeight.bold
+          : pw.FontWeight.normal,
     );
 
     return pw.Container(
       width: double.infinity,
-      padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-      alignment: isName ? pw.Alignment.centerRight : pw.Alignment.center,
+      padding: const pw.EdgeInsets.symmetric(
+        horizontal: 6,
+        vertical: 5,
+      ),
+      alignment: isName
+          ? pw.Alignment.centerRight
+          : pw.Alignment.center,
       child: pw.Text(
         text,
         textDirection: pw.TextDirection.rtl,
-        textAlign: isName ? pw.TextAlign.right : pw.TextAlign.center,
+        textAlign: isName
+            ? pw.TextAlign.right
+            : pw.TextAlign.center,
         style: style,
       ),
     );
@@ -379,7 +390,9 @@ class ExportService {
 
     tableRows.add(
       pw.TableRow(
-        decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE0F2EF)),
+        decoration: const pw.BoxDecoration(
+          color: PdfColor.fromInt(0xFFE0F2EF),
+        ),
         children: [
           for (var i = 0; i < headers.length; i++)
             _tableCell(
@@ -400,7 +413,9 @@ class ExportService {
         pw.TableRow(
           decoration: rowIndex.isEven
               ? null
-              : const pw.BoxDecoration(color: PdfColor.fromInt(0xFFF8FAFA)),
+              : const pw.BoxDecoration(
+                  color: PdfColor.fromInt(0xFFF8FAFA),
+                ),
           children: [
             for (var i = 0; i < headers.length; i++)
               _tableCell(
@@ -416,8 +431,12 @@ class ExportService {
     }
 
     return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
-      defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+      border: pw.TableBorder.all(
+        color: PdfColors.grey400,
+        width: 0.5,
+      ),
+      defaultVerticalAlignment:
+          pw.TableCellVerticalAlignment.middle,
       children: tableRows,
     );
   }
@@ -433,8 +452,13 @@ class ExportService {
   }) {
     return pw.Container(
       margin: const pw.EdgeInsets.only(top: 4),
-      padding: const pw.EdgeInsets.symmetric(vertical: 7, horizontal: 5),
-      decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFF0F0F0)),
+      padding: const pw.EdgeInsets.symmetric(
+        vertical: 7,
+        horizontal: 5,
+      ),
+      decoration: const pw.BoxDecoration(
+        color: PdfColor.fromInt(0xFFF0F0F0),
+      ),
       child: pw.Directionality(
         textDirection: pw.TextDirection.ltr,
         child: pw.Row(
@@ -445,7 +469,11 @@ class ExportService {
                   cell,
                   textDirection: pw.TextDirection.rtl,
                   textAlign: pw.TextAlign.center,
-                  style: pw.TextStyle(font: bold ?? regular, fontSize: 9, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(
+                    font: bold ?? regular,
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
               ),
           ],
@@ -468,9 +496,25 @@ class ExportService {
   }) {
     const accentColor = PdfColor.fromInt(0xFF0F5C52);
 
-    final titleStyle = pw.TextStyle(font: bold ?? regular, fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.white);
-    final organizationStyle = pw.TextStyle(font: bold ?? regular, fontSize: 13.5, fontWeight: pw.FontWeight.bold, color: accentColor);
-    final smallStyle = pw.TextStyle(font: regular, fontSize: 8.5, color: PdfColors.grey700);
+    final titleStyle = pw.TextStyle(
+      font: bold ?? regular,
+      fontSize: 14,
+      fontWeight: pw.FontWeight.bold,
+      color: PdfColors.white,
+    );
+
+    final organizationStyle = pw.TextStyle(
+      font: bold ?? regular,
+      fontSize: 13.5,
+      fontWeight: pw.FontWeight.bold,
+      color: accentColor,
+    );
+
+    final smallStyle = pw.TextStyle(
+      font: regular,
+      fontSize: 8.5,
+      color: PdfColors.grey700,
+    );
 
     return pw.Container(
       margin: const pw.EdgeInsets.only(bottom: 12),
@@ -484,10 +528,20 @@ class ExportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
-                    pw.Text(organization.name, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.right, style: organizationStyle),
+                    pw.Text(
+                      organization.name,
+                      textDirection: pw.TextDirection.rtl,
+                      textAlign: pw.TextAlign.right,
+                      style: organizationStyle,
+                    ),
                     if (organization.shortName.isNotEmpty) ...[
                       pw.SizedBox(height: 2),
-                      pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.right, style: smallStyle),
+                      pw.Text(
+                        organization.shortName,
+                        textDirection: pw.TextDirection.rtl,
+                        textAlign: pw.TextAlign.right,
+                        style: smallStyle,
+                      ),
                     ],
                   ],
                 ),
@@ -501,9 +555,17 @@ class ExportService {
                   decoration: pw.BoxDecoration(
                     shape: pw.BoxShape.circle,
                     color: PdfColors.white,
-                    border: pw.Border.all(color: accentColor, width: 1.1),
+                    border: pw.Border.all(
+                      color: accentColor,
+                      width: 1.1,
+                    ),
                   ),
-                  child: pw.ClipOval(child: pw.Image(logo, fit: pw.BoxFit.cover)),
+                  child: pw.ClipOval(
+                    child: pw.Image(
+                      logo,
+                      fit: pw.BoxFit.cover,
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -511,17 +573,159 @@ class ExportService {
           pw.SizedBox(height: 9),
           pw.Container(
             width: double.infinity,
-            padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            padding: const pw.EdgeInsets.symmetric(
+              vertical: 8,
+              horizontal: 12,
+            ),
             decoration: const pw.BoxDecoration(
               color: accentColor,
-              borderRadius: pw.BorderRadius.all(pw.Radius.circular(5)),
+              borderRadius: pw.BorderRadius.all(
+                pw.Radius.circular(5),
+              ),
             ),
-            child: pw.Text(title, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: titleStyle),
+            child: pw.Text(
+              title,
+              textDirection: pw.TextDirection.rtl,
+              textAlign: pw.TextAlign.center,
+              style: titleStyle,
+            ),
           ),
           pw.SizedBox(height: 5),
           pw.Align(
             alignment: pw.Alignment.centerLeft,
-            child: pw.Text('تاريخ الإصدار: $generatedAt', textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.left, style: smallStyle),
+            child: pw.Text(
+              'تاريخ الإصدار: $generatedAt',
+              textDirection: pw.TextDirection.rtl,
+              textAlign: pw.TextAlign.left,
+              style: smallStyle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ترويسة عمودية (الشعار + اسم المنظمة كعمود ثابت عند أقصى
+  // اليمين) — خاصة بلوائح المنتسبين (exportPdfGroupedList) فقط.
+  // ============================================================
+
+  pw.Widget _buildVerticalHeader({
+    required _OrganizationInfo organization,
+    required pw.ImageProvider? logo,
+    required String title,
+    required String generatedAt,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    const accentColor = PdfColor.fromInt(0xFF0F5C52);
+
+    final titleStyle = pw.TextStyle(
+      font: bold ?? regular,
+      fontSize: 14,
+      fontWeight: pw.FontWeight.bold,
+      color: PdfColors.white,
+    );
+
+    final orgNameStyle = pw.TextStyle(
+      font: bold ?? regular,
+      fontSize: 10,
+      fontWeight: pw.FontWeight.bold,
+      color: accentColor,
+    );
+
+    final smallStyle = pw.TextStyle(
+      font: regular,
+      fontSize: 8,
+      color: PdfColors.grey700,
+    );
+
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 12),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Container(
+                width: 90,
+                padding: const pw.EdgeInsets.only(left: 10),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    if (logo != null)
+                      pw.Container(
+                        width: 56,
+                        height: 56,
+                        padding: const pw.EdgeInsets.all(3),
+                        decoration: pw.BoxDecoration(
+                          shape: pw.BoxShape.circle,
+                          color: PdfColors.white,
+                          border: pw.Border.all(
+                            color: accentColor,
+                            width: 1.1,
+                          ),
+                        ),
+                        child: pw.ClipOval(
+                          child: pw.Image(
+                            logo,
+                            fit: pw.BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    pw.SizedBox(height: 6),
+                    pw.Text(
+                      organization.name,
+                      textDirection: pw.TextDirection.rtl,
+                      textAlign: pw.TextAlign.center,
+                      style: orgNameStyle,
+                    ),
+                    if (organization.shortName.isNotEmpty) ...[
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        organization.shortName,
+                        textDirection: pw.TextDirection.rtl,
+                        textAlign: pw.TextAlign.center,
+                        style: smallStyle,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              pw.Expanded(
+                child: pw.Container(
+                  margin: const pw.EdgeInsets.only(top: 8),
+                  padding: const pw.EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 12,
+                  ),
+                  decoration: const pw.BoxDecoration(
+                    color: accentColor,
+                    borderRadius: pw.BorderRadius.all(
+                      pw.Radius.circular(5),
+                    ),
+                  ),
+                  alignment: pw.Alignment.center,
+                  child: pw.Text(
+                    title,
+                    textDirection: pw.TextDirection.rtl,
+                    textAlign: pw.TextAlign.center,
+                    style: titleStyle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 5),
+          pw.Align(
+            alignment: pw.Alignment.centerLeft,
+            child: pw.Text(
+              'تاريخ الإصدار: $generatedAt',
+              textDirection: pw.TextDirection.rtl,
+              textAlign: pw.TextAlign.left,
+              style: smallStyle,
+            ),
           ),
         ],
       ),
@@ -562,7 +766,12 @@ class ExportService {
       margin: const pw.EdgeInsets.only(top: 24),
       padding: const pw.EdgeInsets.only(top: 10),
       decoration: const pw.BoxDecoration(
-        border: pw.Border(top: pw.BorderSide(color: PdfColors.grey400, width: 0.6)),
+        border: pw.Border(
+          top: pw.BorderSide(
+            color: PdfColors.grey400,
+            width: 0.6,
+          ),
+        ),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
@@ -582,17 +791,40 @@ class ExportService {
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          pw.Text(role, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: bold ?? regular, fontSize: 9, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            role,
+            textDirection: pw.TextDirection.rtl,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              font: bold ?? regular,
+              fontSize: 9,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
           pw.SizedBox(height: 18),
           pw.Container(
             width: 100,
             decoration: const pw.BoxDecoration(
-              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey600, width: 0.7)),
+              border: pw.Border(
+                bottom: pw.BorderSide(
+                  color: PdfColors.grey600,
+                  width: 0.7,
+                ),
+              ),
             ),
             height: 1,
           ),
           pw.SizedBox(height: 6),
-          pw.Text(name, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: bold ?? regular, fontSize: 9, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            name,
+            textDirection: pw.TextDirection.rtl,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              font: bold ?? regular,
+              fontSize: 9,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -609,11 +841,19 @@ class ExportService {
   }) {
     return pw.Container(
       width: 118,
-      padding: const pw.EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      padding: const pw.EdgeInsets.symmetric(
+        vertical: 10,
+        horizontal: 8,
+      ),
       decoration: pw.BoxDecoration(
         color: const PdfColor.fromInt(0xFFF7FAF9),
-        border: pw.Border.all(color: PdfColors.grey300, width: 0.6),
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        border: pw.Border.all(
+          color: PdfColors.grey300,
+          width: 0.6,
+        ),
+        borderRadius: const pw.BorderRadius.all(
+          pw.Radius.circular(6),
+        ),
       ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -622,13 +862,35 @@ class ExportService {
             card.value,
             textDirection: pw.TextDirection.rtl,
             textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(font: bold ?? regular, fontSize: 13, fontWeight: pw.FontWeight.bold, color: card.accentColor ?? PdfColors.teal800),
+            style: pw.TextStyle(
+              font: bold ?? regular,
+              fontSize: 13,
+              fontWeight: pw.FontWeight.bold,
+              color: card.accentColor ?? PdfColors.teal800,
+            ),
           ),
           pw.SizedBox(height: 4),
-          pw.Text(card.title, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: regular, fontSize: 8.5)),
+          pw.Text(
+            card.title,
+            textDirection: pw.TextDirection.rtl,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              font: regular,
+              fontSize: 8.5,
+            ),
+          ),
           if (card.subtitle != null) ...[
             pw.SizedBox(height: 2),
-            pw.Text(card.subtitle!, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: regular, fontSize: 7.5, color: PdfColors.grey600)),
+            pw.Text(
+              card.subtitle!,
+              textDirection: pw.TextDirection.rtl,
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                font: regular,
+                fontSize: 7.5,
+                color: PdfColors.grey600,
+              ),
+            ),
           ],
         ],
       ),
@@ -648,7 +910,14 @@ class ExportService {
         alignment: pw.WrapAlignment.center,
         spacing: 8,
         runSpacing: 8,
-        children: [for (final c in cards) _buildSummaryCard(card: c, regular: regular, bold: bold)],
+        children: [
+          for (final c in cards)
+            _buildSummaryCard(
+              card: c,
+              regular: regular,
+              bold: bold,
+            ),
+        ],
       ),
     );
   }
@@ -660,26 +929,48 @@ class ExportService {
     required pw.Font? bold,
   }) {
     return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 14, bottom: 6),
+      margin: const pw.EdgeInsets.only(
+        top: 14,
+        bottom: 6,
+      ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Container(
-            padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+            padding: const pw.EdgeInsets.symmetric(
+              vertical: 5,
+              horizontal: 8,
+            ),
             decoration: const pw.BoxDecoration(
               color: PdfColor.fromInt(0xFF0F5C52),
-              borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+              borderRadius: pw.BorderRadius.all(
+                pw.Radius.circular(4),
+              ),
             ),
             child: pw.Text(
               title,
               textDirection: pw.TextDirection.rtl,
               textAlign: pw.TextAlign.right,
-              style: pw.TextStyle(font: bold ?? regular, fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              style: pw.TextStyle(
+                font: bold ?? regular,
+                fontSize: 11,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.white,
+              ),
             ),
           ),
           if (note != null) ...[
             pw.SizedBox(height: 3),
-            pw.Text(note, textDirection: pw.TextDirection.rtl, textAlign: pw.TextAlign.right, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+            pw.Text(
+              note,
+              textDirection: pw.TextDirection.rtl,
+              textAlign: pw.TextAlign.right,
+              style: pw.TextStyle(
+                font: regular,
+                fontSize: 8,
+                color: PdfColors.grey700,
+              ),
+            ),
           ],
         ],
       ),
@@ -698,7 +989,10 @@ class ExportService {
   }) {
     return pw.Container(
       margin: const pw.EdgeInsets.only(top: 14),
-      padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+      padding: const pw.EdgeInsets.symmetric(
+        vertical: 6,
+        horizontal: 10,
+      ),
       decoration: const pw.BoxDecoration(
         color: PdfColor.fromInt(0xFF14532D),
         borderRadius: pw.BorderRadius.only(
@@ -711,7 +1005,10 @@ class ExportService {
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
           pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 3,
+            ),
             decoration: pw.BoxDecoration(
               color: PdfColors.white,
               borderRadius: pw.BorderRadius.circular(12),
@@ -756,8 +1053,12 @@ class ExportService {
   }) async {
     final doc = pw.Document();
 
-    final regular = await _tryLoadFont('assets/fonts/arabic_regular.ttf');
-    final bold = await _tryLoadFont('assets/fonts/arabic_bold.ttf');
+    final regular = await _tryLoadFont(
+      'assets/fonts/arabic_regular.ttf',
+    );
+    final bold = await _tryLoadFont(
+      'assets/fonts/arabic_bold.ttf',
+    );
 
     final organization = await _loadOrganizationInfo();
     final logo = await _loadLogo();
@@ -765,14 +1066,28 @@ class ExportService {
     final now = DateTime.now();
     final generatedAt = _formatDateTime(now);
 
-    final reordered = _reorderTable(headers: headers, rows: rows, totalsRow: totalsRow);
+    final reordered = _reorderTable(
+      headers: headers,
+      rows: rows,
+      totalsRow: totalsRow,
+    );
 
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(25, 25, 25, 30),
+        margin: const pw.EdgeInsets.fromLTRB(
+          25,
+          25,
+          25,
+          30,
+        ),
         textDirection: pw.TextDirection.rtl,
-        theme: regular != null ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular) : null,
+        theme: regular != null
+            ? pw.ThemeData.withFont(
+                base: regular,
+                bold: bold ?? regular,
+              )
+            : null,
         header: (context) => _buildHeader(
           organization: organization,
           logo: logo,
@@ -785,16 +1100,46 @@ class ExportService {
           margin: const pw.EdgeInsets.only(top: 8),
           padding: const pw.EdgeInsets.only(top: 5),
           decoration: const pw.BoxDecoration(
-            border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
+            border: pw.Border(
+              top: pw.BorderSide(
+                color: PdfColors.grey300,
+                width: 0.5,
+              ),
+            ),
           ),
           child: pw.Directionality(
             textDirection: pw.TextDirection.ltr,
             child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              mainAxisAlignment:
+                  pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}', textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(generatedAt, textDirection: pw.TextDirection.ltr, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(
+                  'صفحة ${context.pageNumber} من ${context.pagesCount}',
+                  textDirection: pw.TextDirection.rtl,
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.Text(
+                  organization.shortName,
+                  textDirection: pw.TextDirection.rtl,
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.Text(
+                  generatedAt,
+                  textDirection: pw.TextDirection.ltr,
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
               ],
             ),
           ),
@@ -803,20 +1148,34 @@ class ExportService {
           final widgets = <pw.Widget>[];
 
           if (reordered.headers.isNotEmpty) {
-            widgets.add(_buildTable(
-              headers: reordered.headers,
-              rows: reordered.rows,
-              nameColumnIndex: reordered.nameIndex,
-              regular: regular,
-              bold: bold,
-            ));
+            widgets.add(
+              _buildTable(
+                headers: reordered.headers,
+                rows: reordered.rows,
+                nameColumnIndex: reordered.nameIndex,
+                regular: regular,
+                bold: bold,
+              ),
+            );
           }
 
           if (reordered.totalsRow != null) {
-            widgets.add(_buildTotalsRow(totalsRow: reordered.totalsRow!, regular: regular, bold: bold));
+            widgets.add(
+              _buildTotalsRow(
+                totalsRow: reordered.totalsRow!,
+                regular: regular,
+                bold: bold,
+              ),
+            );
           }
 
-          widgets.add(_buildSignatures(organization: organization, regular: regular, bold: bold));
+          widgets.add(
+            _buildSignatures(
+              organization: organization,
+              regular: regular,
+              bold: bold,
+            ),
+          );
 
           return widgets;
         },
@@ -825,7 +1184,10 @@ class ExportService {
 
     final bytes = await doc.save();
     final file = await _writeTempFile(fileName, bytes);
-    await Share.shareXFiles([XFile(file.path)], text: title);
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      text: title,
+    );
   }
 
   // ============================================================
@@ -840,8 +1202,12 @@ class ExportService {
   }) async {
     final doc = pw.Document();
 
-    final regular = await _tryLoadFont('assets/fonts/arabic_regular.ttf');
-    final bold = await _tryLoadFont('assets/fonts/arabic_bold.ttf');
+    final regular = await _tryLoadFont(
+      'assets/fonts/arabic_regular.ttf',
+    );
+    final bold = await _tryLoadFont(
+      'assets/fonts/arabic_bold.ttf',
+    );
 
     final organization = await _loadOrganizationInfo();
     final logo = await _loadLogo();
@@ -852,9 +1218,19 @@ class ExportService {
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(25, 25, 25, 30),
+        margin: const pw.EdgeInsets.fromLTRB(
+          25,
+          25,
+          25,
+          30,
+        ),
         textDirection: pw.TextDirection.rtl,
-        theme: regular != null ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular) : null,
+        theme: regular != null
+            ? pw.ThemeData.withFont(
+                base: regular,
+                bold: bold ?? regular,
+              )
+            : null,
         header: (context) => _buildHeader(
           organization: organization,
           logo: logo,
@@ -867,16 +1243,46 @@ class ExportService {
           margin: const pw.EdgeInsets.only(top: 8),
           padding: const pw.EdgeInsets.only(top: 5),
           decoration: const pw.BoxDecoration(
-            border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
+            border: pw.Border(
+              top: pw.BorderSide(
+                color: PdfColors.grey300,
+                width: 0.5,
+              ),
+            ),
           ),
           child: pw.Directionality(
             textDirection: pw.TextDirection.ltr,
             child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              mainAxisAlignment:
+                  pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}', textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(generatedAt, textDirection: pw.TextDirection.ltr, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(
+                  'صفحة ${context.pageNumber} من ${context.pagesCount}',
+                  textDirection: pw.TextDirection.rtl,
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.Text(
+                  organization.shortName,
+                  textDirection: pw.TextDirection.rtl,
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.Text(
+                  generatedAt,
+                  textDirection: pw.TextDirection.ltr,
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
               ],
             ),
           ),
@@ -884,29 +1290,60 @@ class ExportService {
         build: (context) {
           final widgets = <pw.Widget>[];
 
-          widgets.add(_buildSummaryCardsGrid(cards: cards, regular: regular, bold: bold));
+          widgets.add(
+            _buildSummaryCardsGrid(
+              cards: cards,
+              regular: regular,
+              bold: bold,
+            ),
+          );
 
           for (final section in sections) {
-            widgets.add(_buildSectionTitle(title: section.title, note: section.note, regular: regular, bold: bold));
-
-            final reordered = _reorderTable(headers: section.headers, rows: section.rows, totalsRow: section.totalsRow);
-
-            if (reordered.headers.isNotEmpty) {
-              widgets.add(_buildTable(
-                headers: reordered.headers,
-                rows: reordered.rows,
-                nameColumnIndex: reordered.nameIndex,
+            widgets.add(
+              _buildSectionTitle(
+                title: section.title,
+                note: section.note,
                 regular: regular,
                 bold: bold,
-              ));
+              ),
+            );
+
+            final reordered = _reorderTable(
+              headers: section.headers,
+              rows: section.rows,
+              totalsRow: section.totalsRow,
+            );
+
+            if (reordered.headers.isNotEmpty) {
+              widgets.add(
+                _buildTable(
+                  headers: reordered.headers,
+                  rows: reordered.rows,
+                  nameColumnIndex: reordered.nameIndex,
+                  regular: regular,
+                  bold: bold,
+                ),
+              );
             }
 
             if (reordered.totalsRow != null) {
-              widgets.add(_buildTotalsRow(totalsRow: reordered.totalsRow!, regular: regular, bold: bold));
+              widgets.add(
+                _buildTotalsRow(
+                  totalsRow: reordered.totalsRow!,
+                  regular: regular,
+                  bold: bold,
+                ),
+              );
             }
           }
 
-          widgets.add(_buildSignatures(organization: organization, regular: regular, bold: bold));
+          widgets.add(
+            _buildSignatures(
+              organization: organization,
+              regular: regular,
+              bold: bold,
+            ),
+          );
 
           return widgets;
         },
@@ -915,7 +1352,10 @@ class ExportService {
 
     final bytes = await doc.save();
     final file = await _writeTempFile(fileName, bytes);
-    await Share.shareXFiles([XFile(file.path)], text: title);
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      text: title,
+    );
   }
 
   // ============================================================
@@ -930,8 +1370,12 @@ class ExportService {
   }) async {
     final doc = pw.Document();
 
-    final regular = await _tryLoadFont('assets/fonts/arabic_regular.ttf');
-    final bold = await _tryLoadFont('assets/fonts/arabic_bold.ttf');
+    final regular = await _tryLoadFont(
+      'assets/fonts/arabic_regular.ttf',
+    );
+    final bold = await _tryLoadFont(
+      'assets/fonts/arabic_bold.ttf',
+    );
 
     final organization = await _loadOrganizationInfo();
     final logo = await _loadLogo();
@@ -942,10 +1386,24 @@ class ExportService {
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(25, 25, 25, 30),
+        margin: const pw.EdgeInsets.fromLTRB(
+          25,
+          25,
+          25,
+          30,
+        ),
         textDirection: pw.TextDirection.rtl,
-        theme: regular != null ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular) : null,
-        header: (context) => _buildHeader(
+        theme: regular != null
+            ? pw.ThemeData.withFont(
+                base: regular,
+                bold: bold ?? regular,
+              )
+            : null,
+
+        // ========================================================
+        // الترويسة العمودية الخاصة فقط بلائحة المنتسبين
+        // ========================================================
+        header: (context) => _buildVerticalHeader(
           organization: organization,
           logo: logo,
           title: title,
@@ -953,20 +1411,51 @@ class ExportService {
           regular: regular,
           bold: bold,
         ),
+
         footer: (context) => pw.Container(
           margin: const pw.EdgeInsets.only(top: 8),
           padding: const pw.EdgeInsets.only(top: 5),
           decoration: const pw.BoxDecoration(
-            border: pw.Border(top: pw.BorderSide(color: PdfColors.grey300, width: 0.5)),
+            border: pw.Border(
+              top: pw.BorderSide(
+                color: PdfColors.grey300,
+                width: 0.5,
+              ),
+            ),
           ),
           child: pw.Directionality(
             textDirection: pw.TextDirection.ltr,
             child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              mainAxisAlignment:
+                  pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('صفحة ${context.pageNumber} من ${context.pagesCount}', textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(organization.shortName, textDirection: pw.TextDirection.rtl, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
-                pw.Text(generatedAt, textDirection: pw.TextDirection.ltr, style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(
+                  'صفحة ${context.pageNumber} من ${context.pagesCount}',
+                  textDirection: pw.TextDirection.rtl,
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.Text(
+                  organization.shortName,
+                  textDirection: pw.TextDirection.rtl,
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.Text(
+                  generatedAt,
+                  textDirection: pw.TextDirection.ltr,
+                  style: pw.TextStyle(
+                    font: regular,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
               ],
             ),
           ),
@@ -975,10 +1464,20 @@ class ExportService {
           final widgets = <pw.Widget>[];
 
           for (final group in groups) {
-            final headers = ['ملاحظات', 'الهاتف', 'رقم البطاقة', 'الدليل المالي', 'الاسم', '#'];
+            final headers = [
+              'ملاحظات',
+              'الهاتف',
+              'رقم البطاقة',
+              'الدليل المالي',
+              'الاسم',
+              '#',
+            ];
+
             final tableRows = <List<String>>[];
+
             for (var i = 0; i < group.rows.length; i++) {
               final r = group.rows[i];
+
               tableRows.add([
                 r['notes'] ?? '',
                 r['phone'] ?? '',
@@ -1022,7 +1521,13 @@ class ExportService {
             widgets.add(pw.SizedBox(height: 10));
           }
 
-          widgets.add(_buildSignatures(organization: organization, regular: regular, bold: bold));
+          widgets.add(
+            _buildSignatures(
+              organization: organization,
+              regular: regular,
+              bold: bold,
+            ),
+          );
 
           return widgets;
         },
@@ -1031,7 +1536,10 @@ class ExportService {
 
     final bytes = await doc.save();
     final file = await _writeTempFile(fileName, bytes);
-    await Share.shareXFiles([XFile(file.path)], text: title);
+    await Share.shareXFiles(
+      [XFile(file.path)],
+      text: title,
+    );
   }
 }
 
@@ -1076,6 +1584,7 @@ class _ReorderedTable {
 // =================================================================
 // بطاقة ملخص واحدة — تُستخدم في exportPdfReport
 // =================================================================
+
 class ReportSummaryCard {
   final String title;
   final String value;
@@ -1093,6 +1602,7 @@ class ReportSummaryCard {
 // =================================================================
 // قسم جدولي واحد ضمن تقرير متعدد الأقسام
 // =================================================================
+
 class ReportTableSection {
   final String title;
   final String? note;
@@ -1113,6 +1623,7 @@ class ReportTableSection {
 // قسم واحد ضمن لائحة مجمّعة حسب المؤسسة (اسم المؤسسة + صفوف
 // المنتسبين كخرائط بمفاتيح: name, guide, cardNo, phone, notes)
 // =================================================================
+
 class ReportGroupedListSection {
   final String groupTitle;
   final List<Map<String, String>> rows;
