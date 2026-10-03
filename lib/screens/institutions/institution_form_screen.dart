@@ -43,11 +43,11 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     super.initState();
     final inst = widget.institution;
     _nameCtrl = TextEditingController(text: inst?.name ?? '');
-    _staffCtrl = TextEditingController(text: inst == null ? '' : '${inst.totalStaff}');
-    _sipesCtrl = TextEditingController(text: inst == null ? '' : '${inst.sipesMembers}');
-    _snesCtrl = TextEditingController(text: inst == null ? '' : '${inst.snesMembers}');
-    _otherUnionCtrl = TextEditingController(text: inst == null ? '' : '${inst.otherUnionMembers}');
-    _nonUnionCtrl = TextEditingController(text: inst == null ? '' : '${inst.nonUnionStaff}');
+    _staffCtrl = TextEditingController(text: inst == null ? '0' : '${inst.totalStaff}');
+    _sipesCtrl = TextEditingController(text: inst == null ? '0' : '${inst.sipesMembers}');
+    _snesCtrl = TextEditingController(text: inst == null ? '0' : '${inst.snesMembers}');
+    _otherUnionCtrl = TextEditingController(text: inst == null ? '0' : '${inst.otherUnionMembers}');
+    _nonUnionCtrl = TextEditingController(text: inst == null ? '0' : '${inst.nonUnionStaff}');
     _districtId = inst?.districtId;
     _loadDistricts();
     if (inst?.id != null) _loadTamCount(inst!.id!);
@@ -150,7 +150,10 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
       }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر حفظ المؤسسة: $e')));
+      final msg = e.toString().contains('UNIQUE constraint failed')
+          ? 'توجد مؤسسة بنفس الاسم في هذه المقاطعة بالفعل.'
+          : 'تعذر حفظ المؤسسة: $e';
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
