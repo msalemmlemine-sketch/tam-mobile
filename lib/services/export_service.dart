@@ -348,253 +348,6 @@ class ExportService {
   }
 
   // ============================================================
-  // اكتشاف عمود الاسم وإعادة الترتيب (لجداول التقارير العامة)
-  // ============================================================
-
-  int _findNameColumn(List<String> headers) {
-    final candidates = <String>{
-      'الاسم',
-      'الاسم واللقب',
-      'اسم المنتسب',
-      'اسم الأستاذ',
-      'اسم العضو',
-      'المنتسب',
-      'العضو',
-      'الأستاذ',
-      'اسم',
-    };
-
-    for (var i = 0; i < headers.length; i++) {
-      final value = headers[i].trim();
-      if (candidates.contains(value)) return i;
-    }
-
-    for (var i = 0; i < headers.length; i++) {
-      final value = headers[i].trim();
-      if (value.contains('الاسم') ||
-          value.contains('اسم المنتسب') ||
-          value.contains('اسم العضو')) {
-        return i;
-      }
-    }
-
-    return -1;
-  }
-
-  _ReorderedTable _reorderTable({
-    required List<String> headers,
-    required List<List<String>> rows,
-    List<String>? totalsRow,
-  }) {
-    final nameIndex = _findNameColumn(headers);
-
-    if (nameIndex < 0 || headers.length <= 1) {
-      return _ReorderedTable(
-        headers: List<String>.from(headers),
-        rows: rows.map(List<String>.from).toList(),
-        totalsRow: totalsRow == null ? null : List<String>.from(totalsRow),
-        nameIndex: -1,
-      );
-    }
-
-    final indexes = <int>[
-      nameIndex,
-      for (var i = 0; i < headers.length; i++)
-        if (i != nameIndex) i,
-    ];
-
-    List<String> reorderRow(List<String> row) {
-      return indexes.map((index) => index < row.length ? row[index] : '').toList();
-    }
-
-    return _ReorderedTable(
-      headers: indexes.map((i) => headers[i]).toList(),
-      rows: rows.map(reorderRow).toList(),
-      totalsRow: totalsRow == null ? null : reorderRow(totalsRow),
-      nameIndex: 0,
-    );
-  }
-
-  // ============================================================
-  // بناء الجداول العامة (للتقارير المالية والملخصات)
-  // ============================================================
-
-  pw.Widget _buildStandardTable({
-    required List<String> headers,
-    required List<List<String>> rows,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    return pw.TableHelper.fromTextArray(
-      border: pw.TableBorder.all(color: borderColor, width: 0.5),
-      headers: headers,
-      data: rows,
-      headerStyle: pw.TextStyle(
-        font: bold ?? regular,
-        fontSize: 8.5,
-        fontWeight: pw.FontWeight.bold,
-        color: primaryColor,
-      ),
-      headerDecoration: const pw.BoxDecoration(color: tableHeaderColor),
-      headerAlignment: pw.Alignment.center,
-      headerHeight: 22,
-      cellHeight: 20,
-      cellStyle: pw.TextStyle(
-        font: regular,
-        fontSize: 8,
-        color: PdfColors.black,
-      ),
-      cellAlignment: pw.Alignment.center,
-      rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
-      oddRowDecoration: const pw.BoxDecoration(color: alternateRowColor),
-    );
-  }
-
-  pw.Widget _buildTotalsRow({
-    required List<String> totalsRow,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 4),
-      padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 5),
-      decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFECEFF1)),
-      child: pw.Row(
-        children: [
-          for (final cell in totalsRow)
-            pw.Expanded(
-              child: pw.Text(
-                cell,
-                textDirection: pw.TextDirection.rtl,
-                textAlign: pw.TextAlign.center,
-                style: pw.TextStyle(
-                  font: bold ?? regular,
-                  fontSize: 8.5,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // بطاقات الملخص (ReportSummaryCard)
-  // ============================================================
-
-  pw.Widget _buildSummaryCard({
-    required ReportSummaryCard card,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    return pw.Container(
-      width: 110,
-      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: pw.BoxDecoration(
-        color: const PdfColor.fromInt(0xFFF7FAF9),
-        border: pw.Border.all(color: borderColor, width: 0.6),
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        children: [
-          pw.Text(
-            card.value,
-            textDirection: pw.TextDirection.rtl,
-            textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(
-              font: bold ?? regular,
-              fontSize: 12,
-              fontWeight: pw.FontWeight.bold,
-              color: card.accentColor ?? primaryColor,
-            ),
-          ),
-          pw.SizedBox(height: 3),
-          pw.Text(
-            card.title,
-            textDirection: pw.TextDirection.rtl,
-            textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(font: regular, fontSize: 8),
-          ),
-          if (card.subtitle != null) ...[
-            pw.SizedBox(height: 2),
-            pw.Text(
-              card.subtitle!,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(font: regular, fontSize: 7, color: PdfColors.grey600),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  pw.Widget _buildSummaryCardsGrid({
-    required List<ReportSummaryCard> cards,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    if (cards.isEmpty) return pw.SizedBox();
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 12),
-      child: pw.Wrap(
-        alignment: pw.WrapAlignment.center,
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final c in cards)
-            _buildSummaryCard(card: c, regular: regular, bold: bold),
-        ],
-      ),
-    );
-  }
-
-  pw.Widget _buildSectionTitle({
-    required String title,
-    String? note,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 12, bottom: 6),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-            decoration: const pw.BoxDecoration(
-              color: primaryColor,
-              borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
-            ),
-            child: pw.Text(
-              title,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.right,
-              style: pw.TextStyle(
-                font: bold ?? regular,
-                fontSize: 10,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.white,
-              ),
-            ),
-          ),
-          if (note != null) ...[
-            pw.SizedBox(height: 2),
-            pw.Text(
-              note,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.right,
-              style: pw.TextStyle(font: regular, fontSize: 7.5, color: PdfColors.grey700),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
   // التوقيعات
   // ============================================================
 
@@ -689,14 +442,15 @@ class ExportService {
     final now = DateTime.now();
     final generatedAt = _formatDateTime(now);
 
-    // توزيع عروض الأعمدة: الاسم يأخذ المساحة الكبرى لمنع كسر النصوص
+    // مكتبة pdf ترسم أعمدة TableHelper من اليسار إلى اليمين:
+    // 0 (يسار): ملاحظات | 1: الهاتف | 2: رقم البطاقة | 3: الدليل المالي | 4: الاسم | 5 (يمين): #
     final columnWidths = <int, pw.TableColumnWidth>{
-      0: const pw.FixedColumnWidth(24),      // #
-      1: const pw.FlexColumnWidth(5.0),      // الاسم (عريض ومرن)
-      2: const pw.FixedColumnWidth(68),      // الدليل المالي
-      3: const pw.FixedColumnWidth(58),      // رقم البطاقة
-      4: const pw.FixedColumnWidth(74),      // الهاتف
-      5: const pw.FlexColumnWidth(1.4),      // ملاحظات
+      0: const pw.FlexColumnWidth(1.4),       // ملاحظات (أقصى اليسار)
+      1: const pw.FixedColumnWidth(74),       // الهاتف
+      2: const pw.FixedColumnWidth(58),       // رقم البطاقة
+      3: const pw.FixedColumnWidth(68),       // الدليل المالي
+      4: const pw.FlexColumnWidth(5.0),       // الاسم (المساحة الكبرى)
+      5: const pw.FixedColumnWidth(24),       // # (أقصى اليمين)
     };
 
     doc.addPage(
@@ -723,13 +477,14 @@ class ExportService {
         build: (context) {
           final widgets = <pw.Widget>[];
 
+          // ترتيب ترويسة الأعمدة من اليسار إلى اليمين لتظهر صحيحة على الصفحة:
           final headers = [
-            '#',
-            'الاسم',
-            'الدليل المالي',
-            'رقم البطاقة',
-            'الهاتف',
             'ملاحظات',
+            'الهاتف',
+            'رقم البطاقة',
+            'الدليل المالي',
+            'الاسم',
+            '#',
           ];
 
           for (final group in groups) {
@@ -738,12 +493,12 @@ class ExportService {
             for (var i = 0; i < group.rows.length; i++) {
               final r = group.rows[i];
               tableRows.add([
-                '${i + 1}',
-                _cleanCellText(r['name']),
-                _cleanCellText(r['guide']),
-                _cleanCellText(r['cardNo']),
-                _cleanCellText(r['phone']),
                 _cleanCellText(r['notes']),
+                _cleanCellText(r['phone']),
+                _cleanCellText(r['cardNo']),
+                _cleanCellText(r['guide']),
+                _cleanCellText(r['name']),
+                '${i + 1}',
               ]);
             }
 
@@ -757,41 +512,43 @@ class ExportService {
                   topRight: pw.Radius.circular(4),
                 ),
               ),
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                  pw.Text(
-                    group.groupTitle,
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                      font: bold ?? regular,
-                      fontSize: 9.5,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.white,
-                    ),
-                  ),
-                  pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.white,
-                      borderRadius: pw.BorderRadius.circular(10),
-                    ),
-                    child: pw.Text(
-                      '${group.rows.length} منتسب',
-                      textDirection: pw.TextDirection.rtl,
+              child: pw.Directionality(
+                textDirection: pw.TextDirection.rtl,
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Text(
+                      group.groupTitle,
                       style: pw.TextStyle(
                         font: bold ?? regular,
-                        fontSize: 7.5,
+                        fontSize: 9.5,
                         fontWeight: pw.FontWeight.bold,
-                        color: primaryColor,
+                        color: PdfColors.white,
                       ),
                     ),
-                  ),
-                ],
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.white,
+                        borderRadius: pw.BorderRadius.circular(10),
+                      ),
+                      child: pw.Text(
+                        '${group.rows.length} منتسب',
+                        style: pw.TextStyle(
+                          font: bold ?? regular,
+                          fontSize: 7.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
 
+            // بناء الجدول
             final table = pw.TableHelper.fromTextArray(
               border: pw.TableBorder.all(color: borderColor, width: 0.5),
               columnWidths: columnWidths,
@@ -815,11 +572,11 @@ class ExportService {
               cellAlignment: pw.Alignment.center,
               cellAlignments: {
                 0: pw.Alignment.center,
-                1: pw.Alignment.centerRight,
+                1: pw.Alignment.center,
                 2: pw.Alignment.center,
                 3: pw.Alignment.center,
-                4: pw.Alignment.center,
-                5: pw.Alignment.center,
+                4: pw.Alignment.centerRight, // محاذاة الاسم لليمين
+                5: pw.Alignment.center,      // محاذاة الترقيم # في المنتصف
               },
               rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
               oddRowDecoration: const pw.BoxDecoration(color: alternateRowColor),
@@ -1057,6 +814,247 @@ class ExportService {
     final bytes = await doc.save();
     final file = await _writeTempFile(fileName, bytes);
     await Share.shareXFiles([XFile(file.path)], text: title);
+  }
+
+  // ============================================================
+  // دوال مساعدة للتقارير العامة
+  // ============================================================
+
+  int _findNameColumn(List<String> headers) {
+    final candidates = <String>{
+      'الاسم',
+      'الاسم واللقب',
+      'اسم المنتسب',
+      'اسم الأستاذ',
+      'اسم العضو',
+      'المنتسب',
+      'العضو',
+      'الأستاذ',
+      'اسم',
+    };
+
+    for (var i = 0; i < headers.length; i++) {
+      final value = headers[i].trim();
+      if (candidates.contains(value)) return i;
+    }
+
+    for (var i = 0; i < headers.length; i++) {
+      final value = headers[i].trim();
+      if (value.contains('الاسم') ||
+          value.contains('اسم المنتسب') ||
+          value.contains('اسم العضو')) {
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  _ReorderedTable _reorderTable({
+    required List<String> headers,
+    required List<List<String>> rows,
+    List<String>? totalsRow,
+  }) {
+    final nameIndex = _findNameColumn(headers);
+
+    if (nameIndex < 0 || headers.length <= 1) {
+      return _ReorderedTable(
+        headers: List<String>.from(headers),
+        rows: rows.map(List<String>.from).toList(),
+        totalsRow: totalsRow == null ? null : List<String>.from(totalsRow),
+        nameIndex: -1,
+      );
+    }
+
+    // الترتيب: جعل بقية الأعمدة أولاً ثم الاسم في النهاية
+    // لكي يظهر الاسم على أقصى اليمين هندسياً في الجداول العامة
+    final indexes = <int>[
+      for (var i = 0; i < headers.length; i++)
+        if (i != nameIndex) i,
+      nameIndex,
+    ];
+
+    List<String> reorderRow(List<String> row) {
+      return indexes.map((index) => index < row.length ? row[index] : '').toList();
+    }
+
+    return _ReorderedTable(
+      headers: indexes.map((i) => headers[i]).toList(),
+      rows: rows.map(reorderRow).toList(),
+      totalsRow: totalsRow == null ? null : reorderRow(totalsRow),
+      nameIndex: indexes.length - 1,
+    );
+  }
+
+  pw.Widget _buildStandardTable({
+    required List<String> headers,
+    required List<List<String>> rows,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    return pw.TableHelper.fromTextArray(
+      border: pw.TableBorder.all(color: borderColor, width: 0.5),
+      headers: headers,
+      data: rows,
+      headerStyle: pw.TextStyle(
+        font: bold ?? regular,
+        fontSize: 8.5,
+        fontWeight: pw.FontWeight.bold,
+        color: primaryColor,
+      ),
+      headerDecoration: const pw.BoxDecoration(color: tableHeaderColor),
+      headerAlignment: pw.Alignment.center,
+      headerHeight: 22,
+      cellHeight: 20,
+      cellStyle: pw.TextStyle(
+        font: regular,
+        fontSize: 8,
+        color: PdfColors.black,
+      ),
+      cellAlignment: pw.Alignment.center,
+      rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
+      oddRowDecoration: const pw.BoxDecoration(color: alternateRowColor),
+    );
+  }
+
+  pw.Widget _buildTotalsRow({
+    required List<String> totalsRow,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 4),
+      padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 5),
+      decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFECEFF1)),
+      child: pw.Row(
+        children: [
+          for (final cell in totalsRow)
+            pw.Expanded(
+              child: pw.Text(
+                cell,
+                textDirection: pw.TextDirection.rtl,
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(
+                  font: bold ?? regular,
+                  fontSize: 8.5,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSummaryCard({
+    required ReportSummaryCard card,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    return pw.Container(
+      width: 110,
+      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: pw.BoxDecoration(
+        color: const PdfColor.fromInt(0xFFF7FAF9),
+        border: pw.Border.all(color: borderColor, width: 0.6),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Text(
+            card.value,
+            textDirection: pw.TextDirection.rtl,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              font: bold ?? regular,
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              color: card.accentColor ?? primaryColor,
+            ),
+          ),
+          pw.SizedBox(height: 3),
+          pw.Text(
+            card.title,
+            textDirection: pw.TextDirection.rtl,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(font: regular, fontSize: 8),
+          ),
+          if (card.subtitle != null) ...[
+            pw.SizedBox(height: 2),
+            pw.Text(
+              card.subtitle!,
+              textDirection: pw.TextDirection.rtl,
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(font: regular, fontSize: 7, color: PdfColors.grey600),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSummaryCardsGrid({
+    required List<ReportSummaryCard> cards,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    if (cards.isEmpty) return pw.SizedBox();
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 12),
+      child: pw.Wrap(
+        alignment: pw.WrapAlignment.center,
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final c in cards)
+            _buildSummaryCard(card: c, regular: regular, bold: bold),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSectionTitle({
+    required String title,
+    String? note,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 12, bottom: 6),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            decoration: const pw.BoxDecoration(
+              color: primaryColor,
+              borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+            ),
+            child: pw.Text(
+              title,
+              textDirection: pw.TextDirection.rtl,
+              textAlign: pw.TextAlign.right,
+              style: pw.TextStyle(
+                font: bold ?? regular,
+                fontSize: 10,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.white,
+              ),
+            ),
+          ),
+          if (note != null) ...[
+            pw.SizedBox(height: 2),
+            pw.Text(
+              note,
+              textDirection: pw.TextDirection.rtl,
+              textAlign: pw.TextAlign.right,
+              style: pw.TextStyle(font: regular, fontSize: 7.5, color: PdfColors.grey700),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   // ============================================================
