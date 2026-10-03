@@ -219,13 +219,12 @@ class ExportService {
   }
 
   // ============================================================
-  // ترويسة التقارير الرسمية
+  // ترويسة التقارير الرسمية الثابتة (تظهر في رأس كل صفحة)
   // ============================================================
 
   pw.Widget _buildOfficialHeader({
     required _OrganizationInfo organization,
     required pw.ImageProvider? logo,
-    required String title,
     required String generatedAt,
     required pw.Font? regular,
     required pw.Font? bold,
@@ -235,82 +234,57 @@ class ExportService {
         : organization.name;
 
     return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 14),
-      child: pw.Column(
+      margin: const pw.EdgeInsets.only(bottom: 12),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
+          // اليمين: الشعار واسم المنظمة على سطر واحد
           pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              // اليمين: الشعار واسم المنظمة على سطر واحد
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                  if (logo != null)
-                    pw.Container(
-                      width: 44,
-                      height: 44,
-                      margin: const pw.EdgeInsets.only(left: 8),
-                      child: pw.Image(logo),
-                    ),
-                  pw.Text(
-                    fullOrgTitle,
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                      font: bold ?? regular,
-                      fontSize: 10.5,
-                      fontWeight: pw.FontWeight.bold,
-                      color: primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-              // اليسار: تاريخ الإصدار
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  pw.Text(
-                    'تاريخ الإصدار',
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                      font: bold ?? regular,
-                      fontSize: 7.5,
-                      color: PdfColors.grey600,
-                    ),
-                  ),
-                  pw.Text(
-                    generatedAt,
-                    textDirection: pw.TextDirection.ltr,
-                    style: pw.TextStyle(
-                      font: regular,
-                      fontSize: 8,
-                      color: PdfColors.grey800,
-                    ),
-                  ),
-                ],
+              if (logo != null)
+                pw.Container(
+                  width: 42,
+                  height: 42,
+                  margin: const pw.EdgeInsets.only(left: 8),
+                  child: pw.Image(logo),
+                ),
+              pw.Text(
+                fullOrgTitle,
+                textDirection: pw.TextDirection.rtl,
+                style: pw.TextStyle(
+                  font: bold ?? regular,
+                  fontSize: 10.5,
+                  fontWeight: pw.FontWeight.bold,
+                  color: primaryColor,
+                ),
               ),
             ],
           ),
-          pw.SizedBox(height: 10),
-          // عنوان التقرير في المنتصف
-          pw.Container(
-            width: double.infinity,
-            padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-            decoration: const pw.BoxDecoration(
-              color: primaryColor,
-              borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
-            ),
-            child: pw.Text(
-              title,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(
-                font: bold ?? regular,
-                fontSize: 12,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.white,
+          // اليسار: تاريخ الإصدار
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              pw.Text(
+                'تاريخ الإصدار',
+                textDirection: pw.TextDirection.rtl,
+                style: pw.TextStyle(
+                  font: bold ?? regular,
+                  fontSize: 7.5,
+                  color: PdfColors.grey600,
+                ),
               ),
-            ),
+              pw.Text(
+                generatedAt,
+                textDirection: pw.TextDirection.ltr,
+                style: pw.TextStyle(
+                  font: regular,
+                  fontSize: 8,
+                  color: PdfColors.grey800,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -318,7 +292,7 @@ class ExportService {
   }
 
   // ============================================================
-  // التذييل
+  // التذييل المحدّث
   // ============================================================
 
   pw.Widget _buildFooter({
@@ -336,9 +310,9 @@ class ExportService {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
           pw.Text(
-            organization.shortName,
+            'لائحة مسحوبة من منصة تحالف أساتذة موريتانيا - منسقية لبراكنة',
             textDirection: pw.TextDirection.rtl,
-            style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey600),
+            style: pw.TextStyle(font: regular, fontSize: 7.5, color: PdfColors.grey700),
           ),
           pw.Text(
             'صفحة ${context.pageNumber} من ${context.pagesCount}',
@@ -445,14 +419,14 @@ class ExportService {
     final now = DateTime.now();
     final generatedAt = _formatDateTime(now);
 
-    // ترتيب عروض الأعمدة من اليسار إلى اليمين:
-    // 0 (يسار): ملاحظات | 1: الهاتف | 2: رقم البطاقة | 3: الدليل المالي | 4: الاسم | 5 (يمين): #
+    // توزيع عروض الأعمدة من اليسار لليمين:
+    // 0: ملاحظات | 1: الهاتف | 2: رقم البطاقة | 3: الدليل المالي | 4: الاسم | 5: #
     final columnWidths = <int, pw.TableColumnWidth>{
       0: const pw.FlexColumnWidth(1.4),       // ملاحظات (أقصى اليسار)
       1: const pw.FixedColumnWidth(74),       // الهاتف
       2: const pw.FixedColumnWidth(58),       // رقم البطاقة
       3: const pw.FixedColumnWidth(68),       // الدليل المالي
-      4: const pw.FlexColumnWidth(5.0),       // الاسم (الأعرض لتفادي كسر النصوص)
+      4: const pw.FlexColumnWidth(5.0),       // الاسم (الأعرض)
       5: const pw.FixedColumnWidth(26),       // # (أقصى اليمين)
     };
 
@@ -467,7 +441,6 @@ class ExportService {
         header: (context) => _buildOfficialHeader(
           organization: organization,
           logo: logo,
-          title: title,
           generatedAt: generatedAt,
           regular: regular,
           bold: bold,
@@ -480,8 +453,30 @@ class ExportService {
         build: (context) {
           final widgets = <pw.Widget>[];
 
-          // ترتيب ترويسة الأعمدة مقلوبة من اليسار إلى اليمين
-          // لتظهر في ورقة الطباعة: # في اليمين ... ملاحظات في اليسار
+          // 1. عنوان "لائحة المنتسبين" يظهر في الصفحة الأولى فقط
+          widgets.add(
+            pw.Container(
+              width: double.infinity,
+              margin: const pw.EdgeInsets.only(bottom: 12),
+              padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+              decoration: const pw.BoxDecoration(
+                color: primaryColor,
+                borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+              ),
+              child: pw.Text(
+                title,
+                textDirection: pw.TextDirection.rtl,
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(
+                  font: bold ?? regular,
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                ),
+              ),
+            ),
+          );
+
           final headers = [
             'ملاحظات',
             'الهاتف',
@@ -506,9 +501,7 @@ class ExportService {
               ]);
             }
 
-            // ترويسة المجموعة:
-            // وضع شارة المنتسبين أولاً واسم المؤسسة ثانياً
-            // ليظهر اسم المؤسسة في أقصى اليمين والشارة في أقصى اليسار
+            // ترويسة المجموعة: اسم المؤسسة يميناً وعدد المنتسبين يساراً
             final groupBar = pw.Container(
               padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 10),
               decoration: const pw.BoxDecoration(
@@ -522,6 +515,16 @@ class ExportService {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
+                  pw.Text(
+                    group.groupTitle,
+                    textDirection: pw.TextDirection.rtl,
+                    style: pw.TextStyle(
+                      font: bold ?? regular,
+                      fontSize: 9.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white,
+                    ),
+                  ),
                   pw.Container(
                     padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: pw.BoxDecoration(
@@ -537,16 +540,6 @@ class ExportService {
                         fontWeight: pw.FontWeight.bold,
                         color: primaryColor,
                       ),
-                    ),
-                  ),
-                  pw.Text(
-                    group.groupTitle,
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                      font: bold ?? regular,
-                      fontSize: 9.5,
-                      fontWeight: pw.FontWeight.bold,
-                      color: PdfColors.white,
                     ),
                   ),
                 ],
@@ -580,8 +573,8 @@ class ExportService {
                 1: pw.Alignment.center,
                 2: pw.Alignment.center,
                 3: pw.Alignment.center,
-                4: pw.Alignment.centerRight, // محاذاة الاسم لليمين
-                5: pw.Alignment.center,      // محاذاة الترقيم # في المنتصف
+                4: pw.Alignment.centerRight,
+                5: pw.Alignment.center,
               },
               rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
               oddRowDecoration: const pw.BoxDecoration(color: alternateRowColor),
@@ -658,7 +651,6 @@ class ExportService {
         header: (context) => _buildOfficialHeader(
           organization: organization,
           logo: logo,
-          title: title,
           generatedAt: generatedAt,
           regular: regular,
           bold: bold,
@@ -670,6 +662,30 @@ class ExportService {
         ),
         build: (context) {
           final widgets = <pw.Widget>[];
+
+          // عنوان التقرير في الصفحة الأولى فقط
+          widgets.add(
+            pw.Container(
+              width: double.infinity,
+              margin: const pw.EdgeInsets.only(bottom: 12),
+              padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+              decoration: const pw.BoxDecoration(
+                color: primaryColor,
+                borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+              ),
+              child: pw.Text(
+                title,
+                textDirection: pw.TextDirection.rtl,
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(
+                  font: bold ?? regular,
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                ),
+              ),
+            ),
+          );
 
           if (reordered.headers.isNotEmpty) {
             widgets.add(
@@ -742,7 +758,6 @@ class ExportService {
         header: (context) => _buildOfficialHeader(
           organization: organization,
           logo: logo,
-          title: title,
           generatedAt: generatedAt,
           regular: regular,
           bold: bold,
@@ -754,6 +769,30 @@ class ExportService {
         ),
         build: (context) {
           final widgets = <pw.Widget>[];
+
+          // عنوان التقرير في الصفحة الأولى فقط
+          widgets.add(
+            pw.Container(
+              width: double.infinity,
+              margin: const pw.EdgeInsets.only(bottom: 12),
+              padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+              decoration: const pw.BoxDecoration(
+                color: primaryColor,
+                borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+              ),
+              child: pw.Text(
+                title,
+                textDirection: pw.TextDirection.rtl,
+                textAlign: pw.TextAlign.center,
+                style: pw.TextStyle(
+                  font: bold ?? regular,
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                ),
+              ),
+            ),
+          );
 
           if (cards.isNotEmpty) {
             widgets.add(
