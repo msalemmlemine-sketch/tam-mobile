@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/institution.dart';
 import '../../repositories/institution_repository.dart';
+import '../../services/export_service.dart';
 
 class InstitutionsReportScreen extends StatefulWidget {
   const InstitutionsReportScreen({super.key});
@@ -11,15 +12,104 @@ class InstitutionsReportScreen extends StatefulWidget {
 
 class _InstitutionsReportScreenState extends State<InstitutionsReportScreen> {
   final _repo = InstitutionRepository();
+  final _exportService = ExportService();
   late Future<List<InstitutionAnalytics>> _future;
 
   @override
   void initState() { super.initState(); _future = _repo.getAnalytics(); }
 
+  List<InstitutionAnalytics> _sorted(List<InstitutionAnalytics> rows) {
+    final sorted = [...rows];
+    sorted.sort((a, b) {
+      final d = a.districtName.compareTo(b.districtName);
+      return d != 0 ? d : a.institution.name.compareTo(b.institution.name);
+    });
+    return sorted;
+  }
+
+  List<String> get _headers =>
+      ['المقاطعة', 'المؤسسة', 'الطاقم', 'TAM', 'SIPES', 'SNES', 'نقابات أخرى', 'غير نقابيين', 'نسبة TAM'];
+
+  List<String> _rowValues(InstitutionAnalytics a) {
+    final p = a.tamPercentage;
+    return [
+      a.districtName,
+      a.institution.name,
+      '${a.institution.totalStaff}',
+      '${a.tamMembers}',
+      '${a.institution.sipesMembers}',
+      '${a.institution.snesMembers}',
+      '${a.institution.otherUnionMembers}',
+      '${a.institution.nonUnionStaff}',
+      p == null ? '—' : '${p.toStringAsFixed(1)}%',
+    ];
+  }
+
+  Future<void> _exportCsv(List<InstitutionAnalytics> rows) async {
+    await _exportService.exportCsv(
+      fileName: 'تقرير_المؤسسات.csv',
+      headers: _headers,
+      rows: _sorted(rows).map(_rowValues).toList(),
+    );
+  }
+
+  Future<void> _exportPdf(List<InstitutionAnalytics> rows) async {
+    final staff = rows.fold<int>(0, (s, a) => s + a.institution.totalStaff);
+    final tam = rows.fold<int>(0, (s, a) => s + a.tamMembers);
+    final sipes = rows.fold<int>(0, (s, a) => s + a.institution.sipesMembers);
+    final snes = rows.fold<int>(0, (s, a) => s + a.institution.snesMembers);
+    final other = rows.fold<int>(0, (s, a) => s + a.institution.otherUnionMembers);
+    final non = rows.fold<int>(0, (s, a) => s + a.institution.nonUnionStaff);
+    final p = staff > 0 ? tam * 100 / staff : null;
+
+    await _exportService.exportPdfReport(
+      fileName: 'تقرير_المؤسسات.pdf',
+      title: 'تقرير المؤسسات والتحليل',
+      cards: [
+        ReportSummaryCard(title: 'المؤسسات', value: '${rows.length}'),
+        ReportSummaryCard(title: 'إجمالي الطاقم', value: '$staff'),
+        ReportSummaryCard(title: 'TAM / APM', value: '$tam'),
+        ReportSummaryCard(title: 'SIPES', value: '$sipes'),
+        ReportSummaryCard(title: 'SNES', value: '$snes'),
+        ReportSummaryCard(
+          title: 'نسبة TAM العامة',
+          value: p == null ? '—' : '${p.toStringAsFixed(1)}%',
+        ),
+      ],
+      sections: [
+        ReportTableSection(
+          title: 'كل المؤسسات (مرتَّبة حسب المقاطعة)',
+          headers: _headers,
+          rows: _sorted(rows).map(_rowValues).toList(),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('تقرير المؤسسات'), actions: [IconButton(onPressed: () => setState(() => _future = _repo.getAnalytics()), icon: const Icon(Icons.refresh_rounded))]),
+      appBar: AppBar(title: const Text('تقرير المؤسسات'), actions: [
+        FutureBuilder<List<InstitutionAnalytics>>(
+          future: _future,
+          builder: (context, snapshot) {
+            final rows = snapshot.data;
+            return Row(children: [
+              IconButton(
+                onPressed: rows == null ? null : () => _exportPdf(rows),
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                tooltip: 'تصدير PDF',
+              ),
+              IconButton(
+                onPressed: rows == null ? null : () => _exportCsv(rows),
+                icon: const Icon(Icons.table_chart_outlined),
+                tooltip: 'تصدير CSV',
+              ),
+            ]);
+          },
+        ),
+        IconButton(onPressed: () => setState(() => _future = _repo.getAnalytics()), icon: const Icon(Icons.refresh_rounded)),
+      ]),
       body: FutureBuilder<List<InstitutionAnalytics>>(
         future: _future,
         builder: (context, snapshot) {
