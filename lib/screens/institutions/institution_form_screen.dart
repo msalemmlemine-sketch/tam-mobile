@@ -9,15 +9,10 @@ import '../../services/permission_service.dart';
 
 class InstitutionFormScreen extends StatefulWidget {
   final Institution? institution;
-
-  const InstitutionFormScreen({
-    super.key,
-    this.institution,
-  });
+  const InstitutionFormScreen({super.key, this.institution});
 
   @override
-  State<InstitutionFormScreen> createState() =>
-      _InstitutionFormScreenState();
+  State<InstitutionFormScreen> createState() => _InstitutionFormScreenState();
 }
 
 class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
@@ -34,10 +29,8 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
 
   List<District> _districts = [];
   int? _districtId;
-
-  int _apmMembers = 0;
+  int _tamMembers = 0;
   bool _saving = false;
-
   bool get _isEditing => widget.institution != null;
 
   bool get _canEditIdentity =>
@@ -46,40 +39,21 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
   @override
   void initState() {
     super.initState();
-
     final inst = widget.institution;
-
-    _nameCtrl = TextEditingController(
-      text: inst?.name ?? '',
-    );
-
-    _staffCtrl = TextEditingController(
-      text: inst == null ? '0' : '${inst.totalStaff}',
-    );
-
-    _sipesCtrl = TextEditingController(
-      text: inst == null ? '0' : '${inst.sipesMembers}',
-    );
-
-    _snesCtrl = TextEditingController(
-      text: inst == null ? '0' : '${inst.snesMembers}',
-    );
-
+    _nameCtrl = TextEditingController(text: inst?.name ?? '');
+    _staffCtrl =
+        TextEditingController(text: inst == null ? '0' : '${inst.totalStaff}');
+    _sipesCtrl =
+        TextEditingController(text: inst == null ? '0' : '${inst.sipesMembers}');
+    _snesCtrl =
+        TextEditingController(text: inst == null ? '0' : '${inst.snesMembers}');
     _otherUnionCtrl = TextEditingController(
-      text: inst == null ? '0' : '${inst.otherUnionMembers}',
-    );
-
+        text: inst == null ? '0' : '${inst.otherUnionMembers}');
     _nonUnionCtrl = TextEditingController(
-      text: inst == null ? '0' : '${inst.nonUnionStaff}',
-    );
-
+        text: inst == null ? '0' : '${inst.nonUnionStaff}');
     _districtId = inst?.districtId;
-
     _loadDistricts();
-
-    if (inst?.id != null) {
-      _loadApmCount(inst!.id!);
-    }
+    if (inst?.id != null) _loadTamCount(inst!.id!);
   }
 
   @override
@@ -90,47 +64,29 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     _snesCtrl.dispose();
     _otherUnionCtrl.dispose();
     _nonUnionCtrl.dispose();
-
     super.dispose();
   }
 
   Future<void> _loadDistricts() async {
     final districts = await _districtRepo.getAll();
-
-    if (mounted) {
-      setState(() {
-        _districts = districts;
-      });
-    }
+    if (mounted) setState(() => _districts = districts);
   }
 
-  Future<void> _loadApmCount(int id) async {
+  Future<void> _loadTamCount(int id) async {
     final count = await _institutionRepo.countMembers(id);
-
-    if (mounted) {
-      setState(() {
-        _apmMembers = count;
-      });
-    }
+    if (mounted) setState(() => _tamMembers = count);
   }
 
-  int _number(TextEditingController c) {
-    return int.tryParse(c.text.trim()) ?? 0;
-  }
+  int _number(TextEditingController c) => int.tryParse(c.text.trim()) ?? 0;
 
   String? _numberValidator(String? value) {
     final n = int.tryParse((value ?? '').trim());
-
-    if (n == null || n < 0) {
-      return 'أدخل عدداً صحيحاً';
-    }
-
+    if (n == null || n < 0) return 'أدخل عدداً صحيحاً';
     return null;
   }
 
   Future<void> _addDistrictInline() async {
     final ctrl = TextEditingController();
-
     final name = await showDialog<String>(
       context: context,
       builder: (context) => Directionality(
@@ -139,9 +95,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
           title: const Text('مقاطعة جديدة'),
           content: TextField(
             controller: ctrl,
-            decoration: const InputDecoration(
-              labelText: 'اسم المقاطعة',
-            ),
+            decoration: const InputDecoration(labelText: 'اسم المقاطعة'),
           ),
           actions: [
             TextButton(
@@ -149,45 +103,26 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
               child: const Text('إلغاء'),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(
-                context,
-                ctrl.text.trim(),
-              ),
+              onPressed: () => Navigator.pop(context, ctrl.text.trim()),
               child: const Text('إضافة'),
             ),
           ],
         ),
       ),
     );
-
     ctrl.dispose();
-
-    if (name == null || name.isEmpty) {
-      return;
-    }
-
+    if (name == null || name.isEmpty) return;
     try {
       final id = await _districtRepo.create(
-        District(
-          name: name,
-          createdAt: DateTime.now().toIso8601String(),
-        ),
+        District(name: name, createdAt: DateTime.now().toIso8601String()),
       );
-
       await _loadDistricts();
-
-      if (mounted) {
-        setState(() {
-          _districtId = id;
-        });
-      }
+      if (mounted) setState(() => _districtId = id);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'تعذر إضافة المقاطعة؛ قد تكون مسجلة مسبقاً.',
-            ),
+            content: Text('تعذر إضافة المقاطعة؛ قد تكون مسجلة مسبقاً.'),
           ),
         );
       }
@@ -197,26 +132,16 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
   Future<void> _save() async {
     if (!_canEditIdentity && !_isEditing) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'لا تملك صلاحية إضافة مؤسسة جديدة',
-          ),
-        ),
+        const SnackBar(content: Text('لا تملك صلاحية إضافة مؤسسة جديدة')),
       );
       return;
     }
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     if (_districtId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'يرجى اختيار المقاطعة',
-          ),
-        ),
+        const SnackBar(content: Text('يرجى اختيار المقاطعة')),
       );
       return;
     }
@@ -227,36 +152,27 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     final otherUnion = _number(_otherUnionCtrl);
     final nonUnion = _number(_nonUnionCtrl);
 
-    if (staff < _apmMembers) {
+    if (staff < _tamMembers) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'إجمالي الطاقم ($staff) أقل من عدد منتسبي APM الفعليين ($_apmMembers).',
+            'إجمالي الطاقم ($staff) أقل من عدد منتسبي APM الفعليين ($_tamMembers).',
           ),
         ),
       );
       return;
     }
 
-    if (_apmMembers +
-            sipes +
-            snes +
-            otherUnion +
-            nonUnion >
-        staff) {
+    if (_tamMembers + sipes + snes + otherUnion + nonUnion > staff) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'مجموع الفئات يتجاوز إجمالي الطاقم الكلي للمؤسسة.',
-          ),
+          content: Text('مجموع الفئات يتجاوز إجمالي الطاقم الكلي للمؤسسة.'),
         ),
       );
       return;
     }
 
-    setState(() {
-      _saving = true;
-    });
+    setState(() => _saving = true);
 
     try {
       final now = DateTime.now().toIso8601String();
@@ -279,28 +195,19 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
         await _institutionRepo.create(value);
       }
 
-      if (mounted) {
-        Navigator.of(context).pop(true);
-      }
+      if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      final msg =
-          e.toString().contains('UNIQUE constraint failed')
-              ? 'توجد مؤسسة بنفس الاسم في هذه المقاطعة مسبقاً.'
-              : 'تعذر الحفظ: $e';
+      final msg = e.toString().contains('UNIQUE constraint failed')
+          ? 'توجد مؤسسة بنفس الاسم في هذه المقاطعة مسبقاً.'
+          : 'تعذر الحفظ: $e';
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-          ),
+          SnackBar(content: Text(msg)),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-        });
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -313,22 +220,15 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     final nonUnion = _number(_nonUnionCtrl);
 
     final totalClassified =
-        _apmMembers +
-        sipes +
-        snes +
-        other +
-        nonUnion;
+        _tamMembers + sipes + snes + other + nonUnion;
 
     final remaining = staff - totalClassified;
 
-    final apmPercentage =
-        staff > 0 ? (_apmMembers * 100 / staff) : 0.0;
+    final tamPercentage =
+        staff > 0 ? (_tamMembers * 100 / staff) : 0.0;
 
     final unionizedTotal =
-        _apmMembers +
-        sipes +
-        snes +
-        other;
+        _tamMembers + sipes + snes + other;
 
     final unionRate =
         staff > 0 ? (unionizedTotal * 100 / staff) : 0.0;
@@ -377,17 +277,17 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
               // 4. مؤشرات الأداء والتمثيل النقابي
               _buildKPICard(
                 staff,
-                apmPercentage,
+                tamPercentage,
                 unionRate,
               ),
 
               const SizedBox(height: 20),
 
-              // 5. التقييم الاستراتيجي
+              // 5. التقييم الاستراتيجي والتوصيات العملية الموجهة
               _buildStrategicAssessment(
                 staff: staff,
-                apmCount: _apmMembers,
-                apmRate: apmPercentage,
+                tamCount: _tamMembers,
+                tamRate: tamPercentage,
                 nonUnionCount: nonUnion,
                 remainingCount: remaining,
               ),
@@ -397,9 +297,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
               // زر التثبيت والاعتماد
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   backgroundColor: const Color(0xFF0D5344),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
@@ -407,9 +305,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                   ),
                 ),
                 onPressed: _saving ? null : _save,
-                icon: const Icon(
-                  Icons.verified_outlined,
-                ),
+                icon: const Icon(Icons.verified_outlined),
                 label: _saving
                     ? const SizedBox(
                         width: 20,
@@ -437,7 +333,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
   }
 
   // -------------------------------------------------------------
-  // بطاقة البيانات الأساسية للمؤسسة
+  // المكونات الفرعية للشاشة التحليلية
   // -------------------------------------------------------------
 
   Widget _buildAdministrativeCard() {
@@ -446,9 +342,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
       color: Colors.grey.shade100,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-          color: Colors.grey.shade300,
-        ),
+        side: BorderSide(color: Colors.grey.shade300),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -473,13 +367,10 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return 'اسم المؤسسة مطلوب';
-                }
-
-                return null;
-              },
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty)
+                      ? 'اسم المؤسسة مطلوب'
+                      : null,
             ),
 
             const SizedBox(height: 12),
@@ -496,18 +387,14 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                     ),
                     items: _districts
                         .map(
-                          (d) => DropdownMenuItem<int>(
+                          (d) => DropdownMenuItem(
                             value: d.id,
                             child: Text(d.name),
                           ),
                         )
                         .toList(),
                     onChanged: _canEditIdentity
-                        ? (v) {
-                            setState(() {
-                              _districtId = v;
-                            });
-                          }
+                        ? (v) => setState(() => _districtId = v)
                         : null,
                   ),
                 ),
@@ -532,18 +419,12 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     );
   }
 
-  // -------------------------------------------------------------
-  // إدخال بيانات الطاقم
-  // -------------------------------------------------------------
-
   Widget _buildDataEntrySection(int remaining) {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-          color: Colors.grey.shade300,
-        ),
+        side: BorderSide(color: Colors.grey.shade300),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -586,9 +467,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                 isDense: true,
               ),
               validator: _numberValidator,
-              onChanged: (_) {
-                setState(() {});
-              },
+              onChanged: (_) => setState(() {}),
             ),
 
             const SizedBox(height: 12),
@@ -621,7 +500,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                   ),
 
                   Text(
-                    '$_apmMembers أستاذ',
+                    '$_tamMembers أستاذ',
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 15,
@@ -646,9 +525,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                       isDense: true,
                     ),
                     validator: _numberValidator,
-                    onChanged: (_) {
-                      setState(() {});
-                    },
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
 
@@ -664,9 +541,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                       isDense: true,
                     ),
                     validator: _numberValidator,
-                    onChanged: (_) {
-                      setState(() {});
-                    },
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
               ],
@@ -686,9 +561,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                       isDense: true,
                     ),
                     validator: _numberValidator,
-                    onChanged: (_) {
-                      setState(() {});
-                    },
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
 
@@ -704,9 +577,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                       isDense: true,
                     ),
                     validator: _numberValidator,
-                    onChanged: (_) {
-                      setState(() {});
-                    },
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
               ],
@@ -717,10 +588,6 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     );
   }
 
-  // -------------------------------------------------------------
-  // الجدول الإحصائي
-  // -------------------------------------------------------------
-
   Widget _buildStatisticalTable(
     int staff,
     int sipes,
@@ -729,16 +596,13 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     int nonUnion,
     int remaining,
   ) {
-    double calcPercent(int count) {
-      return staff > 0
-          ? (count * 100 / staff)
-          : 0.0;
-    }
+    double calcPercent(int count) =>
+        staff > 0 ? (count * 100 / staff) : 0.0;
 
     final categories = [
       {
         'name': 'تحالف أساتذة موريتانيا (APM)',
-        'count': _apmMembers,
+        'count': _tamMembers,
         'color': const Color(0xFF0D5344),
       },
       {
@@ -773,9 +637,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: BorderSide(
-          color: Colors.grey.shade300,
-        ),
+        side: BorderSide(color: Colors.grey.shade300),
       ),
       child: Column(
         crossAxisAlignment:
@@ -794,7 +656,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
               ),
             ),
             child: const Text(
-              'التوزيع الإحصائي لهيكل الطاقم',
+              'التوزيع الإحصائي لهيكل الطاقم (من اليمين)',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -840,15 +702,13 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
               ],
               rows: categories.map((cat) {
                 final count = cat['count'] as int;
-
                 final pct = calcPercent(count);
 
-                final isApm = cat['name']
-                    .toString()
-                    .contains('APM');
+                final isTam =
+                    cat['name'].toString().contains('APM');
 
                 return DataRow(
-                  color: isApm
+                  color: isTam
                       ? MaterialStateProperty.all(
                           const Color(0xFFF0F7F4),
                         )
@@ -874,10 +734,10 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                           Text(
                             cat['name'] as String,
                             style: TextStyle(
-                              fontWeight: isApm
+                              fontWeight: isTam
                                   ? FontWeight.w900
                                   : FontWeight.normal,
-                              color: isApm
+                              color: isTam
                                   ? const Color(0xFF0D5344)
                                   : Colors.black87,
                             ),
@@ -890,7 +750,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                       Text(
                         '$count',
                         style: TextStyle(
-                          fontWeight: isApm
+                          fontWeight: isTam
                               ? FontWeight.bold
                               : FontWeight.normal,
                         ),
@@ -901,7 +761,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
                       Text(
                         '${pct.toStringAsFixed(1)}%',
                         style: TextStyle(
-                          fontWeight: isApm
+                          fontWeight: isTam
                               ? FontWeight.bold
                               : FontWeight.normal,
                         ),
@@ -917,13 +777,9 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     );
   }
 
-  // -------------------------------------------------------------
-  // مؤشرات الأداء
-  // -------------------------------------------------------------
-
   Widget _buildKPICard(
     int staff,
-    double apmRate,
+    double tamRate,
     double unionRate,
   ) {
     return Row(
@@ -932,7 +788,7 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
           child: _metricCard(
             title: 'حصة APM بالمؤسسة',
             value:
-                '${apmRate.toStringAsFixed(1)}%',
+                '${tamRate.toStringAsFixed(1)}%',
             subtitle: 'من إجمالي الأساتذة',
             color: const Color(0xFF0D5344),
           ),
@@ -1005,64 +861,59 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     );
   }
 
-  // -------------------------------------------------------------
-  // التقييم الاستراتيجي
-  // -------------------------------------------------------------
-
   Widget _buildStrategicAssessment({
     required int staff,
-    required int apmCount,
-    required double apmRate,
+    required int tamCount,
+    required double tamRate,
     required int nonUnionCount,
     required int remainingCount,
   }) {
     String statusTitle;
     String statusAnalysis;
     Color statusColor;
-
     List<String> recommendations = [];
 
     if (staff == 0) {
       statusTitle = 'البيانات غير مكتملة';
 
       statusAnalysis =
-          'يرجى تسجيل إجمالي طاقم المؤسسة '
-          'لتوليد التحليل النقابي.';
+          'يرجى تسجيل إجمالي طاقم المؤسسة لتوليد التحليل النقابي.';
 
       statusColor = Colors.grey;
 
       recommendations.add(
-        'تحديث بيانات الطاقم لحساب نسب '
-        'التمثيل النقابي بدقة.',
+        'تحديث بيانات الطاقم لحساب نسب القوة النقابية بدقة.',
       );
-    } else if (apmRate >= 50.0) {
+    } else if (tamRate >= 50.0) {
       statusTitle = 'موقع ريادي (أغلبية مطلقة)';
 
       statusColor = const Color(0xFF0D5344);
 
       statusAnalysis =
-          'تمتلك APM قاعدة تتجاوز نصف الطاقم '
-          '(${apmRate.toStringAsFixed(1)}%)، '
-          'وهو ما يعكس حضوراً نقابياً قوياً داخل المؤسسة.';
+          'تمتلك APM قاعدة صلبة تتجاوز نصف الطاقم '
+          '(${tamRate.toStringAsFixed(1)}%)، '
+          'مما يمنحها القدرة على قيادة المبادرات التعليمية '
+          'وتمثيل المطالب بقوة.';
 
       recommendations.addAll([
         'تثبيت المكاسب الحالية وتنشيط خلية المؤسسة باستمرار.',
-        'توسيع التواصل مع بقية الطاقم وتعزيز الحضور المؤسسي.',
+        'استقطاب غير النقابيين لتعزيز الحضور المؤسسي.',
       ]);
-    } else if (apmRate >= 25.0) {
+    } else if (tamRate >= 25.0) {
       statusTitle = 'موقع تنافسي متقدم';
 
       statusColor = Colors.teal.shade800;
 
       statusAnalysis =
           'تمثل APM شريحة وازنة '
-          '(${apmRate.toStringAsFixed(1)}%)، '
-          'مع وجود مساحة لتعزيز الحضور داخل المؤسسة.';
+          '(${tamRate.toStringAsFixed(1)}%). '
+          'توجد مساحة حقيقية لتعزيز حضورها داخل المؤسسة '
+          'عبر العمل الميداني.';
 
       recommendations.addAll([
-        'إطلاق حملة تواصل مركزة مع الأساتذة غير المنخرطين '
+        'إطلاق حملة انتساب مركزة تستهدف الأساتذة غير المنخرطين '
             '($nonUnionCount أستاذ).',
-        'التنسيق في القضايا المشتركة لتعزيز الحضور المؤسسي.',
+        'التنسيق في القضايا المشتركة لتعزيز الحضور المعنوي للتحالف.',
       ]);
     } else {
       statusTitle = 'تمثيل بحاجة إلى تدعيم';
@@ -1071,19 +922,19 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
 
       statusAnalysis =
           'حصة APM منخفضة نسبياً '
-          '(${apmRate.toStringAsFixed(1)}%)، '
-          'ما يستوجب مزيداً من التواصل والتنظيم داخل الطاقم.';
+          '(${tamRate.toStringAsFixed(1)}%)، '
+          'ما يستوجب تدخلاً تنظيمياً لتقوية الانتشار داخل الطاقم.';
 
       recommendations.addAll([
         'تكليف منسق المؤسسة بزيارات تواصل فردية مباشرة مع الطاقم.',
-        'الاستفادة من كتلة غير المنخرطين نقابياً لتوسيع قاعدة المنتسبين.',
+        'الاستفادة من كتلة غير المنخرطين نقابياً لزيادة قاعدة المنتسبين.',
       ]);
     }
 
     if (remainingCount > 0) {
       recommendations.add(
         'استكمال تصنيف $remainingCount من أفراد الطاقم '
-        'للوصول إلى دقة إحصائية كاملة.',
+        'للوصول إلى دقة إحصائية قطعية.',
       );
     }
 
@@ -1179,5 +1030,3 @@ class _InstitutionFormScreenState extends State<InstitutionFormScreen> {
     );
   }
 }
-
-ملاحظة مهمة: هذا التعديل يغيّر "TAM" إلى "APM" في هذه الشاشة وأسماء المتغيرات داخلها فقط. لكنه لا يغيّر اسم الحقول في قاعدة البيانات أو "InstitutionRepository" أو "Member"؛ لذلك إذا كان المقصود تحويل النظام كله من TAM إلى APM، فهذه الملفات تحتاج أيضًا إلى تعديل متناسق.
