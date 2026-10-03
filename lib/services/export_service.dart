@@ -15,26 +15,44 @@ class ExportService {
   // ============================================================
   // ثوابت التصميم والألوان الرسمية
   // ============================================================
-  static const PdfColor primaryColor = PdfColor.fromInt(0xFF0D5344);
-  static const PdfColor tableHeaderColor = PdfColor.fromInt(0xFFE2EFEA);
-  static const PdfColor alternateRowColor = PdfColor.fromInt(0xFFF9FBFA);
-  static const PdfColor borderColor = PdfColor.fromInt(0xFFD1DCD6);
+  static const PdfColor primaryColor =
+      PdfColor.fromInt(0xFF0D5344);
+
+  static const PdfColor tableHeaderColor =
+      PdfColor.fromInt(0xFFE2EFEA);
+
+  static const PdfColor alternateRowColor =
+      PdfColor.fromInt(0xFFF9FBFA);
+
+  static const PdfColor borderColor =
+      PdfColor.fromInt(0xFFD1DCD6);
 
   // ============================================================
   // الملفات المؤقتة
   // ============================================================
 
-  Future<File> _writeTempFile(String fileName, List<int> bytes) async {
+  Future<File> _writeTempFile(
+    String fileName,
+    List<int> bytes,
+  ) async {
     final dir = await getTemporaryDirectory();
     final safeName = _safeFileName(fileName);
     final file = File(p.join(dir.path, safeName));
-    await file.writeAsBytes(bytes, flush: true);
+
+    await file.writeAsBytes(
+      bytes,
+      flush: true,
+    );
+
     return file;
   }
 
   String _safeFileName(String fileName) {
     return fileName
-        .replaceAll(RegExp(r'[<>:"/\|?*]'), '')
+        .replaceAll(
+          RegExp(r'[<>:"/\|?*]'),
+          '',
+        )
         .trim();
   }
 
@@ -42,9 +60,13 @@ class ExportService {
   // تحميل الخطوط
   // ============================================================
 
-  Future<pw.Font?> _tryLoadFont(String assetPath) async {
+  Future<pw.Font?> _tryLoadFont(
+    String assetPath,
+  ) async {
     try {
-      final data = await rootBundle.load(assetPath);
+      final data =
+          await rootBundle.load(assetPath);
+
       return pw.Font.ttf(data);
     } catch (_) {
       return null;
@@ -55,9 +77,12 @@ class ExportService {
   // قراءة الإعدادات
   // ============================================================
 
-  Future<String?> _getSetting(String key) async {
+  Future<String?> _getSetting(
+    String key,
+  ) async {
     try {
-      final db = await AppDatabase.instance.database;
+      final db =
+          await AppDatabase.instance.database;
 
       final rows = await db.query(
         'settings',
@@ -67,25 +92,37 @@ class ExportService {
         limit: 1,
       );
 
-      if (rows.isEmpty) return null;
+      if (rows.isEmpty) {
+        return null;
+      }
 
-      final value = rows.first['setting_value'];
+      final value =
+          rows.first['setting_value'];
 
-      if (value == null) return null;
+      if (value == null) {
+        return null;
+      }
 
-      final text = value.toString().trim();
+      final text =
+          value.toString().trim();
 
-      return text.isEmpty ? null : text;
+      return text.isEmpty
+          ? null
+          : text;
     } catch (_) {
       return null;
     }
   }
 
-  Future<String?> _getFirstSetting(List<String> keys) async {
+  Future<String?> _getFirstSetting(
+    List<String> keys,
+  ) async {
     for (final key in keys) {
-      final value = await _getSetting(key);
+      final value =
+          await _getSetting(key);
 
-      if (value != null && value.trim().isNotEmpty) {
+      if (value != null &&
+          value.trim().isNotEmpty) {
         return value.trim();
       }
     }
@@ -97,50 +134,62 @@ class ExportService {
   // تحميل بيانات المنظمة والمسؤولين
   // ============================================================
 
-  Future<_OrganizationInfo> _loadOrganizationInfo() async {
+  Future<_OrganizationInfo>
+      _loadOrganizationInfo() async {
     String organizationName =
         await _getSetting('org_name') ??
             'نقابة تحالف أساتذة موريتانيا';
 
     String shortName =
-        await _getSetting('org_short') ?? 'تام';
+        await _getSetting('org_short') ??
+            'تام';
 
-    String? organizationSecretary = await _getFirstSetting([
+    String? organizationSecretary =
+        await _getFirstSetting([
       'organization_secretary_name',
       'org_secretary_name',
       'secretary_name',
     ]);
 
-    String? regionalCaptain = await _getFirstSetting([
+    String? regionalCaptain =
+        await _getFirstSetting([
       'regional_captain_name',
       'captain_name',
       'regional_captain',
     ]);
 
-    String? financeSecretary = await _getFirstSetting([
+    String? financeSecretary =
+        await _getFirstSetting([
       'finance_secretary_name',
       'org_finance_secretary_name',
       'finance_name',
     ]);
 
     try {
-      final db = await AppDatabase.instance.database;
+      final db =
+          await AppDatabase.instance.database;
 
       if (organizationSecretary == null) {
         final rows = await db.query(
           'users',
           columns: ['display_name'],
           where: 'role = ?',
-          whereArgs: ['organization_secretary'],
+          whereArgs: [
+            'organization_secretary',
+          ],
           limit: 1,
         );
 
         if (rows.isNotEmpty) {
           final value =
-              rows.first['display_name']?.toString().trim();
+              rows.first['display_name']
+                  ?.toString()
+                  .trim();
 
-          if (value != null && value.isNotEmpty) {
-            organizationSecretary = value;
+          if (value != null &&
+              value.isNotEmpty) {
+            organizationSecretary =
+                value;
           }
         }
       }
@@ -150,15 +199,20 @@ class ExportService {
           'users',
           columns: ['display_name'],
           where: 'role = ?',
-          whereArgs: ['regional_captain'],
+          whereArgs: [
+            'regional_captain',
+          ],
           limit: 1,
         );
 
         if (rows.isNotEmpty) {
           final value =
-              rows.first['display_name']?.toString().trim();
+              rows.first['display_name']
+                  ?.toString()
+                  .trim();
 
-          if (value != null && value.isNotEmpty) {
+          if (value != null &&
+              value.isNotEmpty) {
             regionalCaptain = value;
           }
         }
@@ -169,15 +223,20 @@ class ExportService {
           'users',
           columns: ['display_name'],
           where: 'role = ?',
-          whereArgs: ['finance_secretary'],
+          whereArgs: [
+            'finance_secretary',
+          ],
           limit: 1,
         );
 
         if (rows.isNotEmpty) {
           final value =
-              rows.first['display_name']?.toString().trim();
+              rows.first['display_name']
+                  ?.toString()
+                  .trim();
 
-          if (value != null && value.isNotEmpty) {
+          if (value != null &&
+              value.isNotEmpty) {
             financeSecretary = value;
           }
         }
@@ -187,9 +246,12 @@ class ExportService {
     return _OrganizationInfo(
       name: organizationName,
       shortName: shortName,
-      organizationSecretary: organizationSecretary,
-      financeSecretary: financeSecretary,
-      regionalCaptain: regionalCaptain,
+      organizationSecretary:
+          organizationSecretary,
+      financeSecretary:
+          financeSecretary,
+      regionalCaptain:
+          regionalCaptain,
     );
   }
 
@@ -199,16 +261,23 @@ class ExportService {
 
   Future<pw.ImageProvider?> _loadLogo() async {
     try {
-      final path = await _getSetting('org_logo_path');
+      final path =
+          await _getSetting(
+        'org_logo_path',
+      );
 
-      if (path != null && path.isNotEmpty) {
+      if (path != null &&
+          path.isNotEmpty) {
         final file = File(path);
 
         if (await file.exists()) {
-          final bytes = await file.readAsBytes();
+          final bytes =
+              await file.readAsBytes();
 
           if (bytes.isNotEmpty) {
-            return pw.MemoryImage(bytes);
+            return pw.MemoryImage(
+              bytes,
+            );
           }
         }
       }
@@ -216,12 +285,17 @@ class ExportService {
 
     try {
       final data =
-          await rootBundle.load('assets/images/default_logo.png');
+          await rootBundle.load(
+        'assets/images/default_logo.png',
+      );
 
-      final bytes = data.buffer.asUint8List();
+      final bytes =
+          data.buffer.asUint8List();
 
       if (bytes.isNotEmpty) {
-        return pw.MemoryImage(bytes);
+        return pw.MemoryImage(
+          bytes,
+        );
       }
     } catch (_) {}
 
@@ -232,7 +306,9 @@ class ExportService {
   // التاريخ والوقت
   // ============================================================
 
-  String _formatDateTime(DateTime date) {
+  String _formatDateTime(
+    DateTime date,
+  ) {
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year} '
@@ -244,10 +320,15 @@ class ExportService {
   // تنظيف نصوص الخلايا
   // ============================================================
 
-  String _cleanCellText(dynamic text) {
-    if (text == null) return '-';
+  String _cleanCellText(
+    dynamic text,
+  ) {
+    if (text == null) {
+      return '-';
+    }
 
-    final str = text.toString().trim();
+    final str =
+        text.toString().trim();
 
     if (str.isEmpty ||
         str.toLowerCase() == 'مفقود' ||
@@ -270,41 +351,57 @@ class ExportService {
     required pw.Font? regular,
     required pw.Font? bold,
   }) {
-    final fullOrgTitle = organization.shortName.isNotEmpty
-        ? '${organization.name} (${organization.shortName})'
-        : organization.name;
+    final fullOrgTitle =
+        organization.shortName.isNotEmpty
+            ? '${organization.name} (${organization.shortName})'
+            : organization.name;
 
     return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 14),
+      margin:
+          const pw.EdgeInsets.only(
+        bottom: 14,
+      ),
       child: pw.Column(
         children: [
           pw.Row(
             mainAxisAlignment:
-                pw.MainAxisAlignment.spaceBetween,
+                pw.MainAxisAlignment
+                    .spaceBetween,
             crossAxisAlignment:
                 pw.CrossAxisAlignment.center,
             children: [
-              // اليمين: الشعار واسم المنظمة على سطر واحد
+              // اليمين: الشعار واسم المنظمة
               pw.Row(
                 crossAxisAlignment:
-                    pw.CrossAxisAlignment.center,
+                    pw.CrossAxisAlignment
+                        .center,
                 children: [
                   if (logo != null)
                     pw.Container(
                       width: 44,
                       height: 44,
                       margin:
-                          const pw.EdgeInsets.only(left: 8),
-                      child: pw.Image(logo),
+                          const pw.EdgeInsets
+                              .only(
+                        left: 8,
+                      ),
+                      child:
+                          pw.Image(logo),
                     ),
                   pw.Text(
                     fullOrgTitle,
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                      font: bold ?? regular,
-                      fontSize: 10.5,
-                      fontWeight: pw.FontWeight.bold,
-                      color: primaryColor,
+                    textDirection:
+                        pw.TextDirection.rtl,
+                    style:
+                        pw.TextStyle(
+                      font:
+                          bold ?? regular,
+                      fontSize:
+                          10.5,
+                      fontWeight:
+                          pw.FontWeight.bold,
+                      color:
+                          primaryColor,
                     ),
                   ),
                 ],
@@ -317,20 +414,30 @@ class ExportService {
                 children: [
                   pw.Text(
                     'تاريخ الإصدار',
-                    textDirection: pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                      font: bold ?? regular,
-                      fontSize: 7.5,
-                      color: PdfColors.grey600,
+                    textDirection:
+                        pw.TextDirection.rtl,
+                    style:
+                        pw.TextStyle(
+                      font:
+                          bold ?? regular,
+                      fontSize:
+                          7.5,
+                      color:
+                          PdfColors.grey600,
                     ),
                   ),
                   pw.Text(
                     generatedAt,
-                    textDirection: pw.TextDirection.ltr,
-                    style: pw.TextStyle(
-                      font: regular,
-                      fontSize: 8,
-                      color: PdfColors.grey800,
+                    textDirection:
+                        pw.TextDirection.ltr,
+                    style:
+                        pw.TextStyle(
+                      font:
+                          regular,
+                      fontSize:
+                          8,
+                      color:
+                          PdfColors.grey800,
                     ),
                   ),
                 ],
@@ -338,17 +445,24 @@ class ExportService {
             ],
           ),
 
-          pw.SizedBox(height: 10),
+          pw.SizedBox(
+            height: 10,
+          ),
 
-          // عنوان التقرير في المنتصف
+          // عنوان التقرير
           pw.Container(
-            width: double.infinity,
-            padding: const pw.EdgeInsets.symmetric(
+            width:
+                double.infinity,
+            padding:
+                const pw.EdgeInsets
+                    .symmetric(
               vertical: 6,
               horizontal: 12,
             ),
-            decoration: const pw.BoxDecoration(
-              color: primaryColor,
+            decoration:
+                const pw.BoxDecoration(
+              color:
+                  primaryColor,
               borderRadius:
                   pw.BorderRadius.all(
                 pw.Radius.circular(4),
@@ -356,13 +470,20 @@ class ExportService {
             ),
             child: pw.Text(
               title,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(
-                font: bold ?? regular,
-                fontSize: 12,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.white,
+              textDirection:
+                  pw.TextDirection.rtl,
+              textAlign:
+                  pw.TextAlign.center,
+              style:
+                  pw.TextStyle(
+                font:
+                    bold ?? regular,
+                fontSize:
+                    12,
+                fontWeight:
+                    pw.FontWeight.bold,
+                color:
+                    PdfColors.white,
               ),
             ),
           ),
@@ -381,13 +502,22 @@ class ExportService {
     required pw.Font? regular,
   }) {
     return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 8),
-      padding: const pw.EdgeInsets.only(top: 6),
-      decoration: const pw.BoxDecoration(
+      margin:
+          const pw.EdgeInsets.only(
+        top: 8,
+      ),
+      padding:
+          const pw.EdgeInsets.only(
+        top: 6,
+      ),
+      decoration:
+          const pw.BoxDecoration(
         border: pw.Border(
           top: pw.BorderSide(
-            color: borderColor,
-            width: 0.5,
+            color:
+                borderColor,
+            width:
+                0.5,
           ),
         ),
       ),
@@ -395,37 +525,56 @@ class ExportService {
         children: [
           pw.Text(
             'لائحة مسحوبة من منصة تحالف أساتذة موريتانيا - منسقية البراكنة',
-            textDirection: pw.TextDirection.rtl,
-            textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(
-              font: regular,
-              fontSize: 7,
-              color: PdfColors.grey600,
+            textDirection:
+                pw.TextDirection.rtl,
+            textAlign:
+                pw.TextAlign.center,
+            style:
+                pw.TextStyle(
+              font:
+                  regular,
+              fontSize:
+                  7,
+              color:
+                  PdfColors.grey600,
             ),
           ),
 
-          pw.SizedBox(height: 3),
+          pw.SizedBox(
+            height: 3,
+          ),
 
           pw.Row(
             mainAxisAlignment:
-                pw.MainAxisAlignment.spaceBetween,
+                pw.MainAxisAlignment
+                    .spaceBetween,
             children: [
               pw.Text(
                 organization.shortName,
-                textDirection: pw.TextDirection.rtl,
-                style: pw.TextStyle(
-                  font: regular,
-                  fontSize: 8,
-                  color: PdfColors.grey600,
+                textDirection:
+                    pw.TextDirection.rtl,
+                style:
+                    pw.TextStyle(
+                  font:
+                      regular,
+                  fontSize:
+                      8,
+                  color:
+                      PdfColors.grey600,
                 ),
               ),
               pw.Text(
                 'صفحة ${context.pageNumber} من ${context.pagesCount}',
-                textDirection: pw.TextDirection.rtl,
-                style: pw.TextStyle(
-                  font: regular,
-                  fontSize: 8,
-                  color: PdfColors.grey700,
+                textDirection:
+                    pw.TextDirection.rtl,
+                style:
+                    pw.TextStyle(
+                  font:
+                      regular,
+                  fontSize:
+                      8,
+                  color:
+                      PdfColors.grey700,
                 ),
               ),
             ],
@@ -445,31 +594,57 @@ class ExportService {
     required pw.Font? bold,
   }) {
     return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 20),
-      padding: const pw.EdgeInsets.only(top: 10),
+      margin:
+          const pw.EdgeInsets.only(
+        top: 20,
+      ),
+      padding:
+          const pw.EdgeInsets.only(
+        top: 10,
+      ),
       child: pw.Row(
         mainAxisAlignment:
-            pw.MainAxisAlignment.spaceAround,
+            pw.MainAxisAlignment
+                .spaceAround,
         crossAxisAlignment:
-            pw.CrossAxisAlignment.start,
+            pw.CrossAxisAlignment
+                .start,
         children: [
           _buildSignatureBox(
-            role: 'النقيب الجهوي',
-            name: organization.regionalCaptain ?? '',
-            regular: regular,
-            bold: bold,
+            role:
+                'النقيب الجهوي',
+            name:
+                organization
+                    .regionalCaptain ??
+                    '',
+            regular:
+                regular,
+            bold:
+                bold,
           ),
           _buildSignatureBox(
-            role: 'أمين التنظيم',
-            name: organization.organizationSecretary ?? '',
-            regular: regular,
-            bold: bold,
+            role:
+                'أمين التنظيم',
+            name:
+                organization
+                    .organizationSecretary ??
+                    '',
+            regular:
+                regular,
+            bold:
+                bold,
           ),
           _buildSignatureBox(
-            role: 'أمين المالية',
-            name: organization.financeSecretary ?? '',
-            regular: regular,
-            bold: bold,
+            role:
+                'أمين المالية',
+            name:
+                organization
+                    .financeSecretary ??
+                    '',
+            regular:
+                regular,
+            bold:
+                bold,
           ),
         ],
       ),
@@ -483,60 +658,84 @@ class ExportService {
     required pw.Font? bold,
   }) {
     return pw.Column(
-      mainAxisSize: pw.MainAxisSize.min,
+      mainAxisSize:
+          pw.MainAxisSize.min,
       crossAxisAlignment:
-          pw.CrossAxisAlignment.center,
+          pw.CrossAxisAlignment
+              .center,
       children: [
         pw.Text(
           role,
-          textDirection: pw.TextDirection.rtl,
-          style: pw.TextStyle(
-            font: bold ?? regular,
-            fontSize: 8.5,
-            fontWeight: pw.FontWeight.bold,
-            color: primaryColor,
+          textDirection:
+              pw.TextDirection.rtl,
+          style:
+              pw.TextStyle(
+            font:
+                bold ?? regular,
+            fontSize:
+                8.5,
+            fontWeight:
+                pw.FontWeight.bold,
+            color:
+                primaryColor,
           ),
         ),
 
-        pw.SizedBox(height: 24),
+        pw.SizedBox(
+          height: 24,
+        ),
 
         pw.Text(
           name,
-          textDirection: pw.TextDirection.rtl,
-          style: pw.TextStyle(
-            font: bold ?? regular,
-            fontSize: 8.5,
-            fontWeight: pw.FontWeight.bold,
+          textDirection:
+              pw.TextDirection.rtl,
+          style:
+              pw.TextStyle(
+            font:
+                bold ?? regular,
+            fontSize:
+                8.5,
+            fontWeight:
+                pw.FontWeight.bold,
           ),
         ),
 
-        pw.SizedBox(height: 2),
+        pw.SizedBox(
+          height: 2,
+        ),
 
         pw.Container(
           width: 80,
           height: 0.5,
-          color: PdfColors.grey500,
+          color:
+              PdfColors.grey500,
         ),
       ],
     );
   }
 
   // ============================================================
-  // 1. لائحة مجمّعة حسب المؤسسة (exportPdfGroupedList)
+  // 1. لائحة مجمّعة حسب المؤسسة
   // ============================================================
 
   Future<void> exportPdfGroupedList({
     required String fileName,
     required String title,
-    required List<ReportGroupedListSection> groups,
+    required List<ReportGroupedListSection>
+        groups,
   }) async {
-    final doc = pw.Document();
+    final doc =
+        pw.Document();
 
     final regular =
-        await _tryLoadFont('assets/fonts/arabic_regular.ttf');
+        await _tryLoadFont(
+      'assets/fonts/arabic_regular.ttf',
+    );
 
     final bold =
-        await _tryLoadFont('assets/fonts/arabic_bold.ttf');
+        await _tryLoadFont(
+      'assets/fonts/arabic_bold.ttf',
+    );
 
     final organization =
         await _loadOrganizationInfo();
@@ -544,80 +743,103 @@ class ExportService {
     final logo =
         await _loadLogo();
 
-    final now = DateTime.now();
+    final now =
+        DateTime.now();
 
     final generatedAt =
         _formatDateTime(now);
 
-    // ترتيب عروض الأعمدة من اليسار إلى اليمين:
-    // 0 (يسار): ملاحظات
-    // 1: الهاتف
-    // 2: رقم البطاقة
-    // 3: الدليل المالي
-    // 4: الاسم
-    // 5 (يمين): #
+    // ==========================================================
+    // ترتيب الأعمدة
+    // ==========================================================
+
     final columnWidths =
         <int, pw.TableColumnWidth>{
-      0: const pw.FlexColumnWidth(1.4),
-      1: const pw.FixedColumnWidth(74),
-      2: const pw.FixedColumnWidth(58),
-      3: const pw.FixedColumnWidth(68),
-      4: const pw.FlexColumnWidth(5.0),
-      5: const pw.FixedColumnWidth(26),
+      0: const pw.FlexColumnWidth(
+        1.4,
+      ),
+      1: const pw.FixedColumnWidth(
+        74,
+      ),
+      2: const pw.FixedColumnWidth(
+        58,
+      ),
+      3: const pw.FixedColumnWidth(
+        68,
+      ),
+      4: const pw.FlexColumnWidth(
+        5.0,
+      ),
+      5: const pw.FixedColumnWidth(
+        26,
+      ),
     };
 
     doc.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
+        pageFormat:
+            PdfPageFormat.a4,
 
-        margin: const pw.EdgeInsets.fromLTRB(
+        margin:
+            const pw.EdgeInsets.fromLTRB(
           25,
           25,
           25,
           25,
         ),
 
-        textDirection: pw.TextDirection.rtl,
+        textDirection:
+            pw.TextDirection.rtl,
 
         theme: regular != null
             ? pw.ThemeData.withFont(
-                base: regular,
-                bold: bold ?? regular,
+                base:
+                    regular,
+                bold:
+                    bold ?? regular,
               )
             : null,
 
         // ======================================================
-        // التعديل الأول:
-        // ترويسة لائحة المنتسبين تظهر في الصفحة الأولى فقط
-        // وتستمر البيانات في الصفحات التالية دون حذف.
+        // ترويسة لائحة المنتسبين في الصفحة الأولى فقط
         // ======================================================
+
         header: (context) {
-          if (context.pageNumber == 1) {
+          if (context.pageNumber ==
+              1) {
             return _buildOfficialHeader(
-              organization: organization,
-              logo: logo,
-              title: title,
-              generatedAt: generatedAt,
-              regular: regular,
-              bold: bold,
+              organization:
+                  organization,
+              logo:
+                  logo,
+              title:
+                  title,
+              generatedAt:
+                  generatedAt,
+              regular:
+                  regular,
+              bold:
+                  bold,
             );
           }
 
           return pw.SizedBox();
         },
 
-        footer: (context) => _buildFooter(
-          context: context,
-          organization: organization,
-          regular: regular,
+        footer: (context) =>
+            _buildFooter(
+          context:
+              context,
+          organization:
+              organization,
+          regular:
+              regular,
         ),
 
         build: (context) {
-          final widgets = <pw.Widget>[];
+          final widgets =
+              <pw.Widget>[];
 
-          // ترتيب ترويسة الأعمدة مقلوبة من اليسار إلى اليمين
-          // لتظهر في ورقة الطباعة:
-          // # في اليمين ... ملاحظات في اليسار
           final headers = [
             'ملاحظات',
             'الهاتف',
@@ -627,69 +849,91 @@ class ExportService {
             '#',
           ];
 
-          for (final group in groups) {
-            final tableRows = <List<String>>[];
+          for (final group
+              in groups) {
+            final tableRows =
+                <List<String>>[];
 
             for (
               var i = 0;
               i < group.rows.length;
               i++
             ) {
-              final r = group.rows[i];
+              final r =
+                  group.rows[i];
 
               tableRows.add([
-                _cleanCellText(r['notes']),
-                _cleanCellText(r['phone']),
-                _cleanCellText(r['cardNo']),
-                _cleanCellText(r['guide']),
-                _cleanCellText(r['name']),
+                _cleanCellText(
+                  r['notes'],
+                ),
+                _cleanCellText(
+                  r['phone'],
+                ),
+                _cleanCellText(
+                  r['cardNo'],
+                ),
+                _cleanCellText(
+                  r['guide'],
+                ),
+                _cleanCellText(
+                  r['name'],
+                ),
                 '${i + 1}',
               ]);
             }
 
             // ==================================================
-            // ترويسة المجموعة
-            //
-            // التعديل الثاني:
-            // تبديل ترتيب المؤسسة وعدد المنتسبين
+            // شريط المؤسسة
+            // تم تبديل ترتيب المؤسسة وعدد المنتسبين
             // ==================================================
-            final groupBar = pw.Container(
+
+            final groupBar =
+                pw.Container(
               padding:
-                  const pw.EdgeInsets.symmetric(
+                  const pw.EdgeInsets
+                      .symmetric(
                 vertical: 5,
                 horizontal: 10,
               ),
-
               decoration:
                   const pw.BoxDecoration(
-                color: primaryColor,
+                color:
+                    primaryColor,
                 borderRadius:
                     pw.BorderRadius.only(
                   topLeft:
-                      pw.Radius.circular(4),
+                      pw.Radius.circular(
+                    4,
+                  ),
                   topRight:
-                      pw.Radius.circular(4),
+                      pw.Radius.circular(
+                    4,
+                  ),
                 ),
               ),
-
               child: pw.Row(
                 mainAxisAlignment:
-                    pw.MainAxisAlignment.spaceBetween,
-
+                    pw.MainAxisAlignment
+                        .spaceBetween,
                 crossAxisAlignment:
-                    pw.CrossAxisAlignment.center,
-
+                    pw.CrossAxisAlignment
+                        .center,
                 children: [
-                  // اسم المؤسسة
+                  // المؤسسة
                   pw.Text(
                     group.groupTitle,
                     textDirection:
-                        pw.TextDirection.rtl,
-                    style: pw.TextStyle(
-                      font: bold ?? regular,
-                      fontSize: 9.5,
+                        pw.TextDirection
+                            .rtl,
+                    style:
+                        pw.TextStyle(
+                      font:
+                          bold ?? regular,
+                      fontSize:
+                          9.5,
                       fontWeight:
-                          pw.FontWeight.bold,
+                          pw.FontWeight
+                              .bold,
                       color:
                           PdfColors.white,
                     ),
@@ -698,30 +942,35 @@ class ExportService {
                   // عدد المنتسبين
                   pw.Container(
                     padding:
-                        const pw.EdgeInsets.symmetric(
+                        const pw.EdgeInsets
+                            .symmetric(
                       horizontal: 8,
                       vertical: 2,
                     ),
-
                     decoration:
                         pw.BoxDecoration(
                       color:
                           PdfColors.white,
                       borderRadius:
-                          pw.BorderRadius.circular(
+                          pw.BorderRadius
+                              .circular(
                         10,
                       ),
                     ),
-
                     child: pw.Text(
                       '${group.rows.length} منتسب',
                       textDirection:
-                          pw.TextDirection.rtl,
-                      style: pw.TextStyle(
-                        font: bold ?? regular,
-                        fontSize: 7.5,
+                          pw.TextDirection
+                              .rtl,
+                      style:
+                          pw.TextStyle(
+                        font:
+                            bold ?? regular,
+                        fontSize:
+                            7.5,
                         fontWeight:
-                            pw.FontWeight.bold,
+                            pw.FontWeight
+                                .bold,
                         color:
                             primaryColor,
                       ),
@@ -731,13 +980,19 @@ class ExportService {
               ),
             );
 
-            // بناء الجدول
+            // ==================================================
+            // الجدول
+            // ==================================================
+
             final table =
-                pw.TableHelper.fromTextArray(
+                pw.TableHelper
+                    .fromTextArray(
               border:
                   pw.TableBorder.all(
-                color: borderColor,
-                width: 0.5,
+                color:
+                    borderColor,
+                width:
+                    0.5,
               ),
 
               columnWidths:
@@ -751,8 +1006,10 @@ class ExportService {
 
               headerStyle:
                   pw.TextStyle(
-                font: bold ?? regular,
-                fontSize: 8.5,
+                font:
+                    bold ?? regular,
+                fontSize:
+                    8.5,
                 fontWeight:
                     pw.FontWeight.bold,
                 color:
@@ -776,8 +1033,10 @@ class ExportService {
 
               cellStyle:
                   pw.TextStyle(
-                font: regular,
-                fontSize: 8,
+                font:
+                    regular,
+                fontSize:
+                    8,
                 color:
                     PdfColors.black,
               ),
@@ -786,12 +1045,19 @@ class ExportService {
                   pw.Alignment.center,
 
               cellAlignments: {
-                0: pw.Alignment.center,
-                1: pw.Alignment.center,
-                2: pw.Alignment.center,
-                3: pw.Alignment.center,
-                4: pw.Alignment.centerRight,
-                5: pw.Alignment.center,
+                0:
+                    pw.Alignment.center,
+                1:
+                    pw.Alignment.center,
+                2:
+                    pw.Alignment.center,
+                3:
+                    pw.Alignment.center,
+                4:
+                    pw.Alignment
+                        .centerRight,
+                5:
+                    pw.Alignment.center,
               },
 
               rowDecoration:
@@ -807,27 +1073,39 @@ class ExportService {
               ),
             );
 
+            // ==================================================
+            // الإصلاح الأساسي للفراغ
+            //
+            // يمنع فصل شريط المؤسسة عن الجدول
+            // عندما تكون المجموعة قادرة على احتواء نفسها.
+            // ==================================================
+
             widgets.add(
-              pw.Container(
-                margin:
-                    const pw.EdgeInsets.only(
-                  top: 8,
-                  bottom: 6,
-                ),
-
-                child: pw.Column(
-                  crossAxisAlignment:
-                      pw.CrossAxisAlignment
-                          .stretch,
-
-                  children: [
-                    groupBar,
-                    table,
-                  ],
+              pw.Inseparable(
+                child: pw.Container(
+                  margin:
+                      const pw.EdgeInsets
+                          .only(
+                    top: 8,
+                    bottom: 6,
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment:
+                        pw.CrossAxisAlignment
+                            .stretch,
+                    children: [
+                      groupBar,
+                      table,
+                    ],
+                  ),
                 ),
               ),
             );
           }
+
+          // ==================================================
+          // التوقيعات
+          // ==================================================
 
           widgets.add(
             _buildSignatures(
@@ -861,7 +1139,7 @@ class ExportService {
   }
 
   // ============================================================
-  // 2. تقرير جدول واحد (exportPdfTable)
+  // 2. تقرير جدول واحد
   // ============================================================
 
   Future<void> exportPdfTable({
@@ -871,7 +1149,8 @@ class ExportService {
     required List<List<String>> rows,
     List<String>? totalsRow,
   }) async {
-    final doc = pw.Document();
+    final doc =
+        pw.Document();
 
     final regular =
         await _tryLoadFont(
@@ -897,9 +1176,12 @@ class ExportService {
 
     final reordered =
         _reorderTable(
-      headers: headers,
-      rows: rows,
-      totalsRow: totalsRow,
+      headers:
+          headers,
+      rows:
+          rows,
+      totalsRow:
+          totalsRow,
     );
 
     doc.addPage(
@@ -920,8 +1202,10 @@ class ExportService {
 
         theme: regular != null
             ? pw.ThemeData.withFont(
-                base: regular,
-                bold: bold ?? regular,
+                base:
+                    regular,
+                bold:
+                    bold ?? regular,
               )
             : null,
 
@@ -955,7 +1239,9 @@ class ExportService {
           final widgets =
               <pw.Widget>[];
 
-          if (reordered.headers.isNotEmpty) {
+          if (reordered
+              .headers
+              .isNotEmpty) {
             widgets.add(
               _buildStandardTable(
                 headers:
@@ -970,11 +1256,14 @@ class ExportService {
             );
           }
 
-          if (reordered.totalsRow != null) {
+          if (reordered
+                  .totalsRow !=
+              null) {
             widgets.add(
               _buildTotalsRow(
                 totalsRow:
-                    reordered.totalsRow!,
+                    reordered
+                        .totalsRow!,
                 regular:
                     regular,
                 bold:
@@ -1015,16 +1304,19 @@ class ExportService {
   }
 
   // ============================================================
-  // 3. تقرير متعدد الأقسام (exportPdfReport)
+  // 3. تقرير متعدد الأقسام
   // ============================================================
 
   Future<void> exportPdfReport({
     required String fileName,
     required String title,
-    List<ReportSummaryCard> cards = const [],
-    required List<ReportTableSection> sections,
+    List<ReportSummaryCard>
+        cards = const [],
+    required List<ReportTableSection>
+        sections,
   }) async {
-    final doc = pw.Document();
+    final doc =
+        pw.Document();
 
     final regular =
         await _tryLoadFont(
@@ -1066,8 +1358,10 @@ class ExportService {
 
         theme: regular != null
             ? pw.ThemeData.withFont(
-                base: regular,
-                bold: bold ?? regular,
+                base:
+                    regular,
+                bold:
+                    bold ?? regular,
               )
             : null,
 
@@ -1139,7 +1433,8 @@ class ExportService {
                   section.totalsRow,
             );
 
-            if (reordered.headers
+            if (reordered
+                .headers
                 .isNotEmpty) {
               widgets.add(
                 _buildStandardTable(
@@ -1155,12 +1450,14 @@ class ExportService {
               );
             }
 
-            if (reordered.totalsRow !=
+            if (reordered
+                    .totalsRow !=
                 null) {
               widgets.add(
                 _buildTotalsRow(
                   totalsRow:
-                      reordered.totalsRow!,
+                      reordered
+                          .totalsRow!,
                   regular:
                       regular,
                   bold:
@@ -1208,7 +1505,8 @@ class ExportService {
   int _findNameColumn(
     List<String> headers,
   ) {
-    final candidates = <String>{
+    final candidates =
+        <String>{
       'الاسم',
       'الاسم واللقب',
       'اسم المنتسب',
@@ -1228,7 +1526,8 @@ class ExportService {
       final value =
           headers[i].trim();
 
-      if (candidates.contains(value)) {
+      if (candidates
+          .contains(value)) {
         return i;
       }
     }
@@ -1241,9 +1540,15 @@ class ExportService {
       final value =
           headers[i].trim();
 
-      if (value.contains('الاسم') ||
-          value.contains('اسم المنتسب') ||
-          value.contains('اسم العضو')) {
+      if (value.contains(
+            'الاسم',
+          ) ||
+          value.contains(
+            'اسم المنتسب',
+          ) ||
+          value.contains(
+            'اسم العضو',
+          )) {
         return i;
       }
     }
@@ -1257,13 +1562,17 @@ class ExportService {
     List<String>? totalsRow,
   }) {
     final nameIndex =
-        _findNameColumn(headers);
+        _findNameColumn(
+      headers,
+    );
 
     if (nameIndex < 0 ||
         headers.length <= 1) {
       return _ReorderedTable(
         headers:
-            List<String>.from(headers),
+            List<String>.from(
+          headers,
+        ),
         rows:
             rows
                 .map(
@@ -1281,7 +1590,8 @@ class ExportService {
       );
     }
 
-    final indexes = <int>[
+    final indexes =
+        <int>[
       for (
         var i = 0;
         i < headers.length;
@@ -1308,12 +1618,15 @@ class ExportService {
       headers:
           indexes
               .map(
-                (i) => headers[i],
+                (i) =>
+                    headers[i],
               )
               .toList(),
       rows:
           rows
-              .map(reorderRow)
+              .map(
+                reorderRow,
+              )
               .toList(),
       totalsRow:
           totalsRow == null
@@ -1332,7 +1645,8 @@ class ExportService {
     required pw.Font? regular,
     required pw.Font? bold,
   }) {
-    return pw.TableHelper.fromTextArray(
+    return pw.TableHelper
+        .fromTextArray(
       border:
           pw.TableBorder.all(
         color:
@@ -1411,13 +1725,11 @@ class ExportService {
           const pw.EdgeInsets.only(
         top: 4,
       ),
-
       padding:
           const pw.EdgeInsets.symmetric(
         vertical: 6,
         horizontal: 5,
       ),
-
       decoration:
           const pw.BoxDecoration(
         color:
@@ -1425,17 +1737,19 @@ class ExportService {
           0xFFECEFF1,
         ),
       ),
-
       child: pw.Row(
         children: [
-          for (final cell in totalsRow)
+          for (final cell
+              in totalsRow)
             pw.Expanded(
               child: pw.Text(
                 cell,
                 textDirection:
-                    pw.TextDirection.rtl,
+                    pw.TextDirection
+                        .rtl,
                 textAlign:
-                    pw.TextAlign.center,
+                    pw.TextAlign
+                        .center,
                 style:
                     pw.TextStyle(
                   font:
@@ -1460,13 +1774,12 @@ class ExportService {
     return pw.Container(
       width:
           110,
-
       padding:
-          const pw.EdgeInsets.symmetric(
+          const pw.EdgeInsets
+              .symmetric(
         vertical: 8,
         horizontal: 8,
       ),
-
       decoration:
           pw.BoxDecoration(
         color:
@@ -1482,13 +1795,15 @@ class ExportService {
         ),
         borderRadius:
             const pw.BorderRadius.all(
-          pw.Radius.circular(6),
+          pw.Radius.circular(
+            6,
+          ),
         ),
       ),
-
       child: pw.Column(
         crossAxisAlignment:
-            pw.CrossAxisAlignment.center,
+            pw.CrossAxisAlignment
+                .center,
         children: [
           pw.Text(
             card.value,
@@ -1529,7 +1844,8 @@ class ExportService {
             ),
           ),
 
-          if (card.subtitle != null) ...[
+          if (card.subtitle !=
+              null) ...[
             pw.SizedBox(
               height: 2,
             ),
@@ -1537,9 +1853,11 @@ class ExportService {
             pw.Text(
               card.subtitle!,
               textDirection:
-                  pw.TextDirection.rtl,
+                  pw.TextDirection
+                      .rtl,
               textAlign:
-                  pw.TextAlign.center,
+                  pw.TextAlign
+                      .center,
               style:
                   pw.TextStyle(
                 font:
@@ -1547,7 +1865,8 @@ class ExportService {
                 fontSize:
                     7,
                 color:
-                    PdfColors.grey600,
+                    PdfColors
+                        .grey600,
               ),
             ),
           ],
@@ -1570,17 +1889,14 @@ class ExportService {
           const pw.EdgeInsets.only(
         bottom: 12,
       ),
-
       child: pw.Wrap(
         alignment:
-            pw.WrapAlignment.center,
-
+            pw.WrapAlignment
+                .center,
         spacing:
             8,
-
         runSpacing:
             8,
-
         children: [
           for (final c in cards)
             _buildSummaryCard(
@@ -1608,29 +1924,29 @@ class ExportService {
         top: 12,
         bottom: 6,
       ),
-
       child: pw.Column(
         crossAxisAlignment:
-            pw.CrossAxisAlignment.stretch,
-
+            pw.CrossAxisAlignment
+                .stretch,
         children: [
           pw.Container(
             padding:
-                const pw.EdgeInsets.symmetric(
+                const pw.EdgeInsets
+                    .symmetric(
               vertical: 4,
               horizontal: 8,
             ),
-
             decoration:
                 const pw.BoxDecoration(
               color:
                   primaryColor,
               borderRadius:
                   pw.BorderRadius.all(
-                pw.Radius.circular(4),
+                pw.Radius.circular(
+                  4,
+                ),
               ),
             ),
-
             child: pw.Text(
               title,
               textDirection:
@@ -1689,7 +2005,8 @@ class ExportService {
     List<String>? totalsRow,
   }) async {
     final csv =
-        const ListToCsvConverter().convert([
+        const ListToCsvConverter()
+            .convert([
       headers,
       ...rows,
       if (totalsRow != null)
@@ -1711,7 +2028,8 @@ class ExportService {
 
     await Share.shareXFiles(
       [XFile(file.path)],
-      text: fileName,
+      text:
+          fileName,
     );
   }
 }
@@ -1788,4 +2106,4 @@ class ReportGroupedListSection {
     required this.groupTitle,
     required this.rows,
   });
-}.
+}
