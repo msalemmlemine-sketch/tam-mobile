@@ -11,51 +11,33 @@ import 'package:share_plus/share_plus.dart';
 
 import '../core/database/app_database.dart';
 
-/// خدمة تصدير التقارير والقوائم.
-///
-/// المزايا:
-/// - PDF عربي RTL.
-/// - عمود الاسم يكون في أقصى اليمين فعليًا.
-/// - استعمال خط Amiri المضمّن داخل التطبيق.
-/// - شعار المنظمة من الإعدادات.
-/// - اسم المنظمة من الإعدادات.
-/// - اسم أمين التنظيم والنقيب الجهوي وأمين المالية من الإعدادات
-///   إن وُجدا، وإلا من جدول users حسب الدور، وإلا قيم افتراضية.
-/// - التوقيعات تظهر في نهاية التقرير فقط.
-/// - CSV يبقى متوافقًا مع الاستدعاءات الحالية.
-/// - لا يحتاج إلى اتصال بالإنترنت.
-/// - exportPdfReport: تقرير متعدد الأقسام (بطاقات ملخص + عدة
-///   جداول بعناوين فرعية) لتقارير غنية مثل تقرير الصندوق.
-/// - exportPdfGroupedList: لائحة مجمّعة حسب مجموعة (مثل المؤسسة)
-///   بشارة عدد لكل مجموعة وترقيم تسلسلي يبدأ من 1 داخل كل مجموعة،
-///   مع منع انقسام جدول أي مجموعة بين صفحتين ما أمكن ذلك.
 class ExportService {
+  // ============================================================
+  // ثوابت التصميم والألوان الرسمية
+  // ============================================================
+  static const PdfColor primaryColor = PdfColor.fromInt(0xFF0D5344);
+  static const PdfColor tableHeaderColor = PdfColor.fromInt(0xFFE2EFEA);
+  static const PdfColor alternateRowColor = PdfColor.fromInt(0xFFF9FBFA);
+  static const PdfColor borderColor = PdfColor.fromInt(0xFFD1DCD6);
+
   // ============================================================
   // الملفات المؤقتة
   // ============================================================
 
-  Future<File> _writeTempFile(
-    String fileName,
-    List<int> bytes,
-  ) async {
+  Future<File> _writeTempFile(String fileName, List<int> bytes) async {
     final dir = await getTemporaryDirectory();
-
     final safeName = _safeFileName(fileName);
     final file = File(p.join(dir.path, safeName));
-
     await file.writeAsBytes(bytes, flush: true);
-
     return file;
   }
 
   String _safeFileName(String fileName) {
-    return fileName
-        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
-        .trim();
+    return fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_').trim();
   }
 
   // ============================================================
-  // الخطوط
+  // تحميل الخطوط
   // ============================================================
 
   Future<pw.Font?> _tryLoadFont(String assetPath) async {
@@ -68,13 +50,12 @@ class ExportService {
   }
 
   // ============================================================
-  // قراءة إعداد واحد
+  // قراءة الإعدادات
   // ============================================================
 
   Future<String?> _getSetting(String key) async {
     try {
       final db = await AppDatabase.instance.database;
-
       final rows = await db.query(
         'settings',
         columns: ['setting_value'],
@@ -82,12 +63,9 @@ class ExportService {
         whereArgs: [key],
         limit: 1,
       );
-
       if (rows.isEmpty) return null;
-
       final value = rows.first['setting_value'];
       if (value == null) return null;
-
       final text = value.toString().trim();
       return text.isEmpty ? null : text;
     } catch (_) {
@@ -112,7 +90,6 @@ class ExportService {
   Future<_OrganizationInfo> _loadOrganizationInfo() async {
     String organizationName =
         await _getSetting('org_name') ?? 'نقابة تحالف أساتذة موريتانيا';
-
     String shortName = await _getSetting('org_short') ?? 'تام';
 
     String? organizationSecretary = await _getFirstSetting([
@@ -145,10 +122,7 @@ class ExportService {
           limit: 1,
         );
         if (rows.isNotEmpty) {
-          final value = rows.first['display_name']?.toString().trim();
-          if (value != null && value.isNotEmpty) {
-            organizationSecretary = value;
-          }
+          organizationSecretary = rows.first['display_name']?.toString().trim();
         }
       }
 
@@ -161,10 +135,7 @@ class ExportService {
           limit: 1,
         );
         if (rows.isNotEmpty) {
-          final value = rows.first['display_name']?.toString().trim();
-          if (value != null && value.isNotEmpty) {
-            regionalCaptain = value;
-          }
+          regionalCaptain = rows.first['display_name']?.toString().trim();
         }
       }
 
@@ -177,10 +148,7 @@ class ExportService {
           limit: 1,
         );
         if (rows.isNotEmpty) {
-          final value = rows.first['display_name']?.toString().trim();
-          if (value != null && value.isNotEmpty) {
-            financeSecretary = value;
-          }
+          financeSecretary = rows.first['display_name']?.toString().trim();
         }
       }
     } catch (_) {}
@@ -199,7 +167,6 @@ class ExportService {
   // ============================================================
 
   Future<pw.ImageProvider?> _loadLogo() async {
-    // أولاً: الشعار الذي يضبطه المستخدم من شاشة الإعدادات.
     try {
       final path = await _getSetting('org_logo_path');
       if (path != null && path.isNotEmpty) {
@@ -211,11 +178,6 @@ class ExportService {
       }
     } catch (_) {}
 
-    // ثانيًا (احتياطي): شعار افتراضي مضمّن داخل أصول التطبيق، حتى
-    // يظهر شعار في التقرير دومًا ولو لم يضبط المستخدم شيئًا بعد.
-    // يجب إضافة صورة الشعار في المسار التالي وتصريحها في
-    // pubspec.yaml تحت flutter/assets، وإلا سيُتجاهل هذا الجزء
-    // بصمت وتبقى بقية التقرير تعمل بشكل طبيعي.
     try {
       final data = await rootBundle.load('assets/images/default_logo.png');
       final bytes = data.buffer.asUint8List();
@@ -226,19 +188,428 @@ class ExportService {
   }
 
   // ============================================================
-  // التاريخ والوقت
+  // تنسيق التاريخ والوقت
   // ============================================================
 
   String _formatDateTime(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year} '
-        '${date.hour.toString().padLeft(2, '0')}:'
-        '${date.minute.toString().padLeft(2, '0')}';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} '
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   // ============================================================
-  // CSV
+  // تنظيف نصوص الخلايا
+  // ============================================================
+
+  String _cleanCellText(dynamic text) {
+    if (text == null) return '-';
+    final str = text.toString().trim();
+    if (str.isEmpty || str.toLowerCase() == 'مفقود' || str.toLowerCase() == 'null') {
+      return '-';
+    }
+    return str;
+  }
+
+  // ============================================================
+  // ترويسة التقرير الرسمية المتوازنة
+  // ============================================================
+
+  pw.Widget _buildOfficialHeader({
+    required _OrganizationInfo organization,
+    required pw.ImageProvider? logo,
+    required String title,
+    required String generatedAt,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    // دمج اسم النقابة مع الاختصار على سطر واحد
+    final fullOrgTitle = organization.shortName.isNotEmpty
+        ? '${organization.name} (${organization.shortName})'
+        : organization.name;
+
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 14),
+      child: pw.Column(
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              // اليمين: الشعار واسم المنظمة على سطر واحد
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  if (logo != null)
+                    pw.Container(
+                      width: 44,
+                      height: 44,
+                      margin: const pw.EdgeInsets.only(left: 8),
+                      child: pw.Image(logo),
+                    ),
+                  pw.Text(
+                    fullOrgTitle,
+                    textDirection: pw.TextDirection.rtl,
+                    style: pw.TextStyle(
+                      font: bold ?? regular,
+                      fontSize: 10.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+              // اليسار: تاريخ الإصدار
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    'تاريخ الإصدار',
+                    textDirection: pw.TextDirection.rtl,
+                    style: pw.TextStyle(
+                      font: bold ?? regular,
+                      fontSize: 7.5,
+                      color: PdfColors.grey600,
+                    ),
+                  ),
+                  pw.Text(
+                    generatedAt,
+                    textDirection: pw.TextDirection.ltr,
+                    style: pw.TextStyle(
+                      font: regular,
+                      fontSize: 8,
+                      color: PdfColors.grey800,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 10),
+          // عنوان التقرير الأوسط
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+            decoration: const pw.BoxDecoration(
+              color: primaryColor,
+              borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+            ),
+            child: pw.Text(
+              title,
+              textDirection: pw.TextDirection.rtl,
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                font: bold ?? regular,
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // التذييل الموحد
+  // ============================================================
+
+  pw.Widget _buildFooter({
+    required pw.Context context,
+    required _OrganizationInfo organization,
+    required pw.Font? regular,
+  }) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 8),
+      padding: const pw.EdgeInsets.only(top: 6),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(top: pw.BorderSide(color: borderColor, width: 0.5)),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            organization.shortName,
+            textDirection: pw.TextDirection.rtl,
+            style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey600),
+          ),
+          pw.Text(
+            'صفحة ${context.pageNumber} من ${context.pagesCount}',
+            textDirection: pw.TextDirection.rtl,
+            style: pw.TextStyle(font: regular, fontSize: 8, color: PdfColors.grey700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // لائحة مجمّعة حسب المؤسسة (exportPdfGroupedList)
+  // ============================================================
+
+  Future<void> exportPdfGroupedList({
+    required String fileName,
+    required String title,
+    required List<ReportGroupedListSection> groups,
+  }) async {
+    final doc = pw.Document();
+
+    final regular = await _tryLoadFont('assets/fonts/arabic_regular.ttf');
+    final bold = await _tryLoadFont('assets/fonts/arabic_bold.ttf');
+
+    final organization = await _loadOrganizationInfo();
+    final logo = await _loadLogo();
+
+    final now = DateTime.now();
+    final generatedAt = _formatDateTime(now);
+
+    // توزيع عروض الأعمدة: عمود الاسم هو الأكبر بشكل ملحوظ
+    // الأعمدة بترتيب RTL: # ، الاسم ، الدليل المالي ، رقم البطاقة ، الهاتف ، ملاحظات
+    final columnWidths = <int, pw.TableColumnWidth>{
+      0: const pw.FixedColumnWidth(24),      // # (مضغوط ومحدد للترقيم)
+      1: const pw.FlexColumnWidth(5.0),      // الاسم (المساحة الكبرى لاستيعاب الأسماء الرباعية)
+      2: const pw.FixedColumnWidth(68),      // الدليل المالي
+      3: const pw.FixedColumnWidth(58),      // رقم البطاقة
+      4: const pw.FixedColumnWidth(74),      // الهاتف
+      5: const pw.FlexColumnWidth(1.4),      // ملاحظات
+    };
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(25, 25, 25, 25),
+        textDirection: pw.TextDirection.rtl,
+        theme: regular != null
+            ? pw.ThemeData.withFont(base: regular, bold: bold ?? regular)
+            : null,
+        header: (context) => _buildOfficialHeader(
+          organization: organization,
+          logo: logo,
+          title: title,
+          generatedAt: generatedAt,
+          regular: regular,
+          bold: bold,
+        ),
+        footer: (context) => _buildFooter(
+          context: context,
+          organization: organization,
+          regular: regular,
+        ),
+        build: (context) {
+          final widgets = <pw.Widget>[];
+
+          final headers = [
+            '#',
+            'الاسم',
+            'الدليل المالي',
+            'رقم البطاقة',
+            'الهاتف',
+            'ملاحظات',
+          ];
+
+          for (final group in groups) {
+            final tableRows = <List<String>>[];
+
+            for (var i = 0; i < group.rows.length; i++) {
+              final r = group.rows[i];
+              tableRows.add([
+                '${i + 1}',
+                _cleanCellText(r['name']),
+                _cleanCellText(r['guide']),
+                _cleanCellText(r['cardNo']),
+                _cleanCellText(r['phone']),
+                _cleanCellText(r['notes']),
+              ]);
+            }
+
+            // ترويسة المجموعة: المؤسسة في اليمين وعدد المنتسبين في اليسار
+            final groupBar = pw.Container(
+              padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+              decoration: const pw.BoxDecoration(
+                color: primaryColor,
+                borderRadius: pw.BorderRadius.only(
+                  topLeft: pw.Radius.circular(4),
+                  topRight: pw.Radius.circular(4),
+                ),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Text(
+                    group.groupTitle,
+                    textDirection: pw.TextDirection.rtl,
+                    style: pw.TextStyle(
+                      font: bold ?? regular,
+                      fontSize: 9.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white,
+                    ),
+                  ),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.white,
+                      borderRadius: pw.BorderRadius.circular(10),
+                    ),
+                    child: pw.Text(
+                      '${group.rows.length} منتسب',
+                      textDirection: pw.TextDirection.rtl,
+                      style: pw.TextStyle(
+                        font: bold ?? regular,
+                        fontSize: 7.5,
+                        fontWeight: pw.FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+            // بناء الجدول مع تكرار الترويسة آلياً عند الانقسام
+            final table = pw.TableHelper.fromTextArray(
+              border: pw.TableBorder.all(color: borderColor, width: 0.5),
+              columnWidths: columnWidths,
+              headers: headers,
+              data: tableRows,
+              headerStyle: pw.TextStyle(
+                font: bold ?? regular,
+                fontSize: 8.5,
+                fontWeight: pw.FontWeight.bold,
+                color: primaryColor,
+              ),
+              headerDecoration: const pw.BoxDecoration(color: tableHeaderColor),
+              headerAlignment: pw.Alignment.center,
+              headerHeight: 22,
+              cellHeight: 20,
+              cellStyle: pw.TextStyle(
+                font: regular,
+                fontSize: 8,
+                color: PdfColors.black,
+              ),
+              cellAlignment: pw.Alignment.center,
+              cellAlignments: {
+                0: pw.Alignment.center,
+                1: pw.Alignment.centerRight, // محاذاة الاسم لليمين
+                2: pw.Alignment.center,
+                3: pw.Alignment.center,
+                4: pw.Alignment.center,
+                5: pw.Alignment.center,
+              },
+              rowDecoration: const pw.BoxDecoration(color: PdfColors.white),
+              oddRowDecoration: const pw.BoxDecoration(color: alternateRowColor),
+            );
+
+            widgets.add(
+              pw.Container(
+                margin: const pw.EdgeInsets.only(top: 8, bottom: 6),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    groupBar,
+                    table,
+                  ],
+                ),
+              ),
+            );
+          }
+
+          // التوقيعات في أسفل آخر صفحة
+          widgets.add(
+            _buildSignatures(
+              organization: organization,
+              regular: regular,
+              bold: bold,
+            ),
+          );
+
+          return widgets;
+        },
+      ),
+    );
+
+    final bytes = await doc.save();
+    final file = await _writeTempFile(fileName, bytes);
+    await Share.shareXFiles([XFile(file.path)], text: title);
+  }
+
+  // ============================================================
+  // التوقيعات
+  // ============================================================
+
+  pw.Widget _buildSignatures({
+    required _OrganizationInfo organization,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 18),
+      padding: const pw.EdgeInsets.only(top: 10),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _buildSignatureBox(
+            role: 'النقيب الجهوي',
+            name: organization.regionalCaptain ?? '',
+            regular: regular,
+            bold: bold,
+          ),
+          _buildSignatureBox(
+            role: 'أمين التنظيم',
+            name: organization.organizationSecretary ?? '',
+            regular: regular,
+            bold: bold,
+          ),
+          _buildSignatureBox(
+            role: 'أمين المالية',
+            name: organization.financeSecretary ?? '',
+            regular: regular,
+            bold: bold,
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSignatureBox({
+    required String role,
+    required String name,
+    required pw.Font? regular,
+    required pw.Font? bold,
+  }) {
+    return pw.Column(
+      mainAxisSize: pw.MainAxisSize.min,
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.Text(
+          role,
+          textDirection: pw.TextDirection.rtl,
+          style: pw.TextStyle(
+            font: bold ?? regular,
+            fontSize: 8.5,
+            fontWeight: pw.FontWeight.bold,
+            color: primaryColor,
+          ),
+        ),
+        pw.SizedBox(height: 24),
+        pw.Text(
+          name,
+          textDirection: pw.TextDirection.rtl,
+          style: pw.TextStyle(
+            font: bold ?? regular,
+            fontSize: 8.5,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+        pw.SizedBox(height: 2),
+        pw.Container(width: 80, height: 0.5, color: PdfColors.grey500),
+      ],
+    );
+  }
+
+  // ============================================================
+  // تصدير CSV
   // ============================================================
 
   Future<void> exportCsv({
@@ -254,1297 +625,13 @@ class ExportService {
     ]);
 
     final bytes = [0xEF, 0xBB, 0xBF, ...utf8.encode(csv)];
-
     final file = await _writeTempFile(fileName, bytes);
-
     await Share.shareXFiles([XFile(file.path)], text: fileName);
-  }
-
-  // ============================================================
-  // اكتشاف عمود الاسم
-  // ============================================================
-
-  int _findNameColumn(List<String> headers) {
-    final candidates = <String>{
-      'الاسم',
-      'الاسم واللقب',
-      'اسم المنتسب',
-      'اسم الأستاذ',
-      'اسم العضو',
-      'المنتسب',
-      'العضو',
-      'الأستاذ',
-      'اسم',
-    };
-
-    for (var i = 0; i < headers.length; i++) {
-      final value = headers[i].trim();
-      if (candidates.contains(value)) return i;
-    }
-
-    for (var i = 0; i < headers.length; i++) {
-      final value = headers[i].trim();
-      if (value.contains('الاسم') ||
-          value.contains('اسم المنتسب') ||
-          value.contains('اسم العضو')) {
-        return i;
-      }
-    }
-
-    return -1;
-  }
-
-  // ============================================================
-  // جعل عمود الاسم في أقصى اليمين
-  // ============================================================
-
-  _ReorderedTable _reorderTable({
-    required List<String> headers,
-    required List<List<String>> rows,
-    List<String>? totalsRow,
-  }) {
-    final nameIndex = _findNameColumn(headers);
-
-    if (nameIndex < 0 || headers.length <= 1) {
-      return _ReorderedTable(
-        headers: List<String>.from(headers),
-        rows: rows.map(List<String>.from).toList(),
-        totalsRow: totalsRow == null ? null : List<String>.from(totalsRow),
-        nameIndex: -1,
-      );
-    }
-
-    final indexes = <int>[
-      for (var i = 0; i < headers.length; i++)
-        if (i != nameIndex) i,
-      nameIndex,
-    ];
-
-    List<String> reorderRow(List<String> row) {
-      return indexes
-          .map((index) => index < row.length ? row[index] : '')
-          .toList();
-    }
-
-    return _ReorderedTable(
-      headers: indexes.map((i) => headers[i]).toList(),
-      rows: rows.map(reorderRow).toList(),
-      totalsRow: totalsRow == null ? null : reorderRow(totalsRow),
-      nameIndex: indexes.length - 1,
-    );
-  }
-
-  // ============================================================
-  // خلية جدول
-  // ============================================================
-
-  pw.Widget _tableCell({
-    required String text,
-    required bool header,
-    required bool isName,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    final font = header ? (bold ?? regular) : regular;
-
-    final style = pw.TextStyle(
-      font: font,
-      fontSize: header ? 9.5 : 9,
-      fontWeight: header
-          ? pw.FontWeight.bold
-          : pw.FontWeight.normal,
-    );
-
-    return pw.Container(
-      width: double.infinity,
-      padding: const pw.EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 5,
-      ),
-      alignment: isName
-          ? pw.Alignment.centerRight
-          : pw.Alignment.center,
-      child: pw.Text(
-        text,
-        textDirection: pw.TextDirection.rtl,
-        textAlign: isName
-            ? pw.TextAlign.right
-            : pw.TextAlign.center,
-        style: style,
-      ),
-    );
-  }
-
-  // ============================================================
-  // إنشاء الجدول
-  // ============================================================
-
-  pw.Widget _buildTable({
-    required List<String> headers,
-    required List<List<String>> rows,
-    required int nameColumnIndex,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    final tableRows = <pw.TableRow>[];
-
-    tableRows.add(
-      pw.TableRow(
-        decoration: const pw.BoxDecoration(
-          color: PdfColor.fromInt(0xFFE0F2EF),
-        ),
-        children: [
-          for (var i = 0; i < headers.length; i++)
-            _tableCell(
-              text: headers[i],
-              header: true,
-              isName: i == nameColumnIndex,
-              regular: regular,
-              bold: bold,
-            ),
-        ],
-      ),
-    );
-
-    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-      final row = rows[rowIndex];
-
-      tableRows.add(
-        pw.TableRow(
-          decoration: rowIndex.isEven
-              ? null
-              : const pw.BoxDecoration(
-                  color: PdfColor.fromInt(0xFFF8FAFA),
-                ),
-          children: [
-            for (var i = 0; i < headers.length; i++)
-              _tableCell(
-                text: i < row.length ? row[i] : '',
-                header: false,
-                isName: i == nameColumnIndex,
-                regular: regular,
-                bold: bold,
-              ),
-          ],
-        ),
-      );
-    }
-
-    return pw.Table(
-      border: pw.TableBorder.all(
-        color: PdfColors.grey400,
-        width: 0.5,
-      ),
-      defaultVerticalAlignment:
-          pw.TableCellVerticalAlignment.middle,
-      children: tableRows,
-    );
-  }
-
-  // ============================================================
-  // صف الإجماليات
-  // ============================================================
-
-  pw.Widget _buildTotalsRow({
-    required List<String> totalsRow,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 4),
-      padding: const pw.EdgeInsets.symmetric(
-        vertical: 7,
-        horizontal: 5,
-      ),
-      decoration: const pw.BoxDecoration(
-        color: PdfColor.fromInt(0xFFF0F0F0),
-      ),
-      child: pw.Directionality(
-        textDirection: pw.TextDirection.ltr,
-        child: pw.Row(
-          children: [
-            for (final cell in totalsRow)
-              pw.Expanded(
-                child: pw.Text(
-                  cell,
-                  textDirection: pw.TextDirection.rtl,
-                  textAlign: pw.TextAlign.center,
-                  style: pw.TextStyle(
-                    font: bold ?? regular,
-                    fontSize: 9,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // رأس التقرير
-  // ============================================================
-
-  pw.Widget _buildHeader({
-    required _OrganizationInfo organization,
-    required pw.ImageProvider? logo,
-    required String title,
-    required String generatedAt,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    const accentColor = PdfColor.fromInt(0xFF0F5C52);
-
-    final titleStyle = pw.TextStyle(
-      font: bold ?? regular,
-      fontSize: 14,
-      fontWeight: pw.FontWeight.bold,
-      color: PdfColors.white,
-    );
-
-    final organizationStyle = pw.TextStyle(
-      font: bold ?? regular,
-      fontSize: 13.5,
-      fontWeight: pw.FontWeight.bold,
-      color: accentColor,
-    );
-
-    final smallStyle = pw.TextStyle(
-      font: regular,
-      fontSize: 8.5,
-      color: PdfColors.grey700,
-    );
-
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 12),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.center,
-            children: [
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                  children: [
-                    pw.Text(
-                      organization.name,
-                      textDirection: pw.TextDirection.rtl,
-                      textAlign: pw.TextAlign.right,
-                      style: organizationStyle,
-                    ),
-                    if (organization.shortName.isNotEmpty) ...[
-                      pw.SizedBox(height: 2),
-                      pw.Text(
-                        organization.shortName,
-                        textDirection: pw.TextDirection.rtl,
-                        textAlign: pw.TextAlign.right,
-                        style: smallStyle,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (logo != null) ...[
-                pw.SizedBox(width: 10),
-                pw.Container(
-                  width: 56,
-                  height: 56,
-                  padding: const pw.EdgeInsets.all(3),
-                  decoration: pw.BoxDecoration(
-                    shape: pw.BoxShape.circle,
-                    color: PdfColors.white,
-                    border: pw.Border.all(
-                      color: accentColor,
-                      width: 1.1,
-                    ),
-                  ),
-                  child: pw.ClipOval(
-                    child: pw.Image(
-                      logo,
-                      fit: pw.BoxFit.cover,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          pw.SizedBox(height: 9),
-          pw.Container(
-            width: double.infinity,
-            padding: const pw.EdgeInsets.symmetric(
-              vertical: 8,
-              horizontal: 12,
-            ),
-            decoration: const pw.BoxDecoration(
-              color: accentColor,
-              borderRadius: pw.BorderRadius.all(
-                pw.Radius.circular(5),
-              ),
-            ),
-            child: pw.Text(
-              title,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: titleStyle,
-            ),
-          ),
-          pw.SizedBox(height: 5),
-          pw.Align(
-            alignment: pw.Alignment.centerLeft,
-            child: pw.Text(
-              'تاريخ الإصدار: $generatedAt',
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.left,
-              style: smallStyle,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // ترويسة عمودية (الشعار + اسم المنظمة كعمود ثابت عند أقصى
-  // اليمين) — خاصة بلوائح المنتسبين (exportPdfGroupedList) فقط.
-  // ============================================================
-
-  pw.Widget _buildVerticalHeader({
-    required _OrganizationInfo organization,
-    required pw.ImageProvider? logo,
-    required String title,
-    required String generatedAt,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    const accentColor = PdfColor.fromInt(0xFF0F5C52);
-
-    final titleStyle = pw.TextStyle(
-      font: bold ?? regular,
-      fontSize: 14,
-      fontWeight: pw.FontWeight.bold,
-      color: PdfColors.white,
-    );
-
-    final orgNameStyle = pw.TextStyle(
-      font: bold ?? regular,
-      fontSize: 10,
-      fontWeight: pw.FontWeight.bold,
-      color: accentColor,
-    );
-
-    final smallStyle = pw.TextStyle(
-      font: regular,
-      fontSize: 8,
-      color: PdfColors.grey700,
-    );
-
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 12),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Container(
-                width: 90,
-                padding: const pw.EdgeInsets.only(left: 10),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    if (logo != null)
-                      pw.Container(
-                        width: 56,
-                        height: 56,
-                        padding: const pw.EdgeInsets.all(3),
-                        decoration: pw.BoxDecoration(
-                          shape: pw.BoxShape.circle,
-                          color: PdfColors.white,
-                          border: pw.Border.all(
-                            color: accentColor,
-                            width: 1.1,
-                          ),
-                        ),
-                        child: pw.ClipOval(
-                          child: pw.Image(
-                            logo,
-                            fit: pw.BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                    pw.SizedBox(height: 6),
-                    pw.Text(
-                      organization.name,
-                      textDirection: pw.TextDirection.rtl,
-                      textAlign: pw.TextAlign.center,
-                      style: orgNameStyle,
-                    ),
-                    if (organization.shortName.isNotEmpty) ...[
-                      pw.SizedBox(height: 2),
-                      pw.Text(
-                        organization.shortName,
-                        textDirection: pw.TextDirection.rtl,
-                        textAlign: pw.TextAlign.center,
-                        style: smallStyle,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              pw.Expanded(
-                child: pw.Container(
-                  margin: const pw.EdgeInsets.only(top: 8),
-                  padding: const pw.EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 12,
-                  ),
-                  decoration: const pw.BoxDecoration(
-                    color: accentColor,
-                    borderRadius: pw.BorderRadius.all(
-                      pw.Radius.circular(5),
-                    ),
-                  ),
-                  alignment: pw.Alignment.center,
-                  child: pw.Text(
-                    title,
-                    textDirection: pw.TextDirection.rtl,
-                    textAlign: pw.TextAlign.center,
-                    style: titleStyle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          pw.SizedBox(height: 5),
-          pw.Align(
-            alignment: pw.Alignment.centerLeft,
-            child: pw.Text(
-              'تاريخ الإصدار: $generatedAt',
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.left,
-              style: smallStyle,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // التوقيعات (النقيب الجهوي، أمين التنظيم، أمين المالية)
-  // ============================================================
-
-  pw.Widget _buildSignatures({
-    required _OrganizationInfo organization,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    final signatures = <pw.Widget>[
-      _buildSignature(
-        role: 'النقيب الجهوي',
-        name: organization.regionalCaptain ?? '',
-        regular: regular,
-        bold: bold,
-      ),
-      _buildSignature(
-        role: 'أمين التنظيم',
-        name: organization.organizationSecretary ?? '',
-        regular: regular,
-        bold: bold,
-      ),
-      _buildSignature(
-        role: 'أمين المالية',
-        name: organization.financeSecretary ?? '',
-        regular: regular,
-        bold: bold,
-      ),
-    ];
-
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 24),
-      padding: const pw.EdgeInsets.only(top: 10),
-      decoration: const pw.BoxDecoration(
-        border: pw.Border(
-          top: pw.BorderSide(
-            color: PdfColors.grey400,
-            width: 0.6,
-          ),
-        ),
-      ),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: signatures,
-      ),
-    );
-  }
-
-  pw.Widget _buildSignature({
-    required String role,
-    required String name,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    return pw.Expanded(
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        children: [
-          pw.Text(
-            role,
-            textDirection: pw.TextDirection.rtl,
-            textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(
-              font: bold ?? regular,
-              fontSize: 9,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-          pw.SizedBox(height: 18),
-          pw.Container(
-            width: 100,
-            decoration: const pw.BoxDecoration(
-              border: pw.Border(
-                bottom: pw.BorderSide(
-                  color: PdfColors.grey600,
-                  width: 0.7,
-                ),
-              ),
-            ),
-            height: 1,
-          ),
-          pw.SizedBox(height: 6),
-          pw.Text(
-            name,
-            textDirection: pw.TextDirection.rtl,
-            textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(
-              font: bold ?? regular,
-              fontSize: 9,
-              fontWeight: pw.FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // بطاقة ملخص واحدة
-  // ============================================================
-
-  pw.Widget _buildSummaryCard({
-    required ReportSummaryCard card,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    return pw.Container(
-      width: 118,
-      padding: const pw.EdgeInsets.symmetric(
-        vertical: 10,
-        horizontal: 8,
-      ),
-      decoration: pw.BoxDecoration(
-        color: const PdfColor.fromInt(0xFFF7FAF9),
-        border: pw.Border.all(
-          color: PdfColors.grey300,
-          width: 0.6,
-        ),
-        borderRadius: const pw.BorderRadius.all(
-          pw.Radius.circular(6),
-        ),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        children: [
-          pw.Text(
-            card.value,
-            textDirection: pw.TextDirection.rtl,
-            textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(
-              font: bold ?? regular,
-              fontSize: 13,
-              fontWeight: pw.FontWeight.bold,
-              color: card.accentColor ?? PdfColors.teal800,
-            ),
-          ),
-          pw.SizedBox(height: 4),
-          pw.Text(
-            card.title,
-            textDirection: pw.TextDirection.rtl,
-            textAlign: pw.TextAlign.center,
-            style: pw.TextStyle(
-              font: regular,
-              fontSize: 8.5,
-            ),
-          ),
-          if (card.subtitle != null) ...[
-            pw.SizedBox(height: 2),
-            pw.Text(
-              card.subtitle!,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.center,
-              style: pw.TextStyle(
-                font: regular,
-                fontSize: 7.5,
-                color: PdfColors.grey600,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  pw.Widget _buildSummaryCardsGrid({
-    required List<ReportSummaryCard> cards,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    if (cards.isEmpty) return pw.SizedBox();
-
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 14),
-      child: pw.Wrap(
-        alignment: pw.WrapAlignment.center,
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final c in cards)
-            _buildSummaryCard(
-              card: c,
-              regular: regular,
-              bold: bold,
-            ),
-        ],
-      ),
-    );
-  }
-
-  pw.Widget _buildSectionTitle({
-    required String title,
-    String? note,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(
-        top: 14,
-        bottom: 6,
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(
-              vertical: 5,
-              horizontal: 8,
-            ),
-            decoration: const pw.BoxDecoration(
-              color: PdfColor.fromInt(0xFF0F5C52),
-              borderRadius: pw.BorderRadius.all(
-                pw.Radius.circular(4),
-              ),
-            ),
-            child: pw.Text(
-              title,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.right,
-              style: pw.TextStyle(
-                font: bold ?? regular,
-                fontSize: 11,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.white,
-              ),
-            ),
-          ),
-          if (note != null) ...[
-            pw.SizedBox(height: 3),
-            pw.Text(
-              note,
-              textDirection: pw.TextDirection.rtl,
-              textAlign: pw.TextAlign.right,
-              style: pw.TextStyle(
-                font: regular,
-                fontSize: 8,
-                color: PdfColors.grey700,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // شارة عنوان مجموعة (مؤسسة) — شريط أخضر + شارة عدد المنتسبين
-  // ============================================================
-
-  pw.Widget _buildGroupHeader({
-    required String title,
-    required int count,
-    required pw.Font? regular,
-    required pw.Font? bold,
-  }) {
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 14),
-      padding: const pw.EdgeInsets.symmetric(
-        vertical: 6,
-        horizontal: 10,
-      ),
-      decoration: const pw.BoxDecoration(
-        color: PdfColor.fromInt(0xFF14532D),
-        borderRadius: pw.BorderRadius.only(
-          topLeft: pw.Radius.circular(4),
-          topRight: pw.Radius.circular(4),
-        ),
-      ),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        children: [
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 3,
-            ),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.white,
-              borderRadius: pw.BorderRadius.circular(12),
-            ),
-            child: pw.Text(
-              '$count منتسب',
-              textDirection: pw.TextDirection.rtl,
-              style: pw.TextStyle(
-                font: bold ?? regular,
-                fontSize: 8,
-                fontWeight: pw.FontWeight.bold,
-                color: const PdfColor.fromInt(0xFF14532D),
-              ),
-            ),
-          ),
-          pw.Text(
-            title,
-            textDirection: pw.TextDirection.rtl,
-            textAlign: pw.TextAlign.right,
-            style: pw.TextStyle(
-              font: bold ?? regular,
-              fontSize: 11,
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // PDF TABLE (تقرير بجدول واحد — اللوائح البسيطة)
-  // ============================================================
-
-  Future<void> exportPdfTable({
-    required String fileName,
-    required String title,
-    required List<String> headers,
-    required List<List<String>> rows,
-    List<String>? totalsRow,
-  }) async {
-    final doc = pw.Document();
-
-    final regular = await _tryLoadFont(
-      'assets/fonts/arabic_regular.ttf',
-    );
-    final bold = await _tryLoadFont(
-      'assets/fonts/arabic_bold.ttf',
-    );
-
-    final organization = await _loadOrganizationInfo();
-    final logo = await _loadLogo();
-
-    final now = DateTime.now();
-    final generatedAt = _formatDateTime(now);
-
-    final reordered = _reorderTable(
-      headers: headers,
-      rows: rows,
-      totalsRow: totalsRow,
-    );
-
-    doc.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(
-          25,
-          25,
-          25,
-          30,
-        ),
-        textDirection: pw.TextDirection.rtl,
-        theme: regular != null
-            ? pw.ThemeData.withFont(
-                base: regular,
-                bold: bold ?? regular,
-              )
-            : null,
-        header: (context) => _buildHeader(
-          organization: organization,
-          logo: logo,
-          title: title,
-          generatedAt: generatedAt,
-          regular: regular,
-          bold: bold,
-        ),
-        footer: (context) => pw.Container(
-          margin: const pw.EdgeInsets.only(top: 8),
-          padding: const pw.EdgeInsets.only(top: 5),
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(
-              top: pw.BorderSide(
-                color: PdfColors.grey300,
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: pw.Directionality(
-            textDirection: pw.TextDirection.ltr,
-            child: pw.Row(
-              mainAxisAlignment:
-                  pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'صفحة ${context.pageNumber} من ${context.pagesCount}',
-                  textDirection: pw.TextDirection.rtl,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-                pw.Text(
-                  organization.shortName,
-                  textDirection: pw.TextDirection.rtl,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-                pw.Text(
-                  generatedAt,
-                  textDirection: pw.TextDirection.ltr,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        build: (context) {
-          final widgets = <pw.Widget>[];
-
-          if (reordered.headers.isNotEmpty) {
-            widgets.add(
-              _buildTable(
-                headers: reordered.headers,
-                rows: reordered.rows,
-                nameColumnIndex: reordered.nameIndex,
-                regular: regular,
-                bold: bold,
-              ),
-            );
-          }
-
-          if (reordered.totalsRow != null) {
-            widgets.add(
-              _buildTotalsRow(
-                totalsRow: reordered.totalsRow!,
-                regular: regular,
-                bold: bold,
-              ),
-            );
-          }
-
-          widgets.add(
-            _buildSignatures(
-              organization: organization,
-              regular: regular,
-              bold: bold,
-            ),
-          );
-
-          return widgets;
-        },
-      ),
-    );
-
-    final bytes = await doc.save();
-    final file = await _writeTempFile(fileName, bytes);
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      text: title,
-    );
-  }
-
-  // ============================================================
-  // PDF REPORT (تقرير متعدد الأقسام — بطاقات ملخص + عدة جداول)
-  // ============================================================
-
-  Future<void> exportPdfReport({
-    required String fileName,
-    required String title,
-    List<ReportSummaryCard> cards = const [],
-    required List<ReportTableSection> sections,
-  }) async {
-    final doc = pw.Document();
-
-    final regular = await _tryLoadFont(
-      'assets/fonts/arabic_regular.ttf',
-    );
-    final bold = await _tryLoadFont(
-      'assets/fonts/arabic_bold.ttf',
-    );
-
-    final organization = await _loadOrganizationInfo();
-    final logo = await _loadLogo();
-
-    final now = DateTime.now();
-    final generatedAt = _formatDateTime(now);
-
-    doc.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(
-          25,
-          25,
-          25,
-          30,
-        ),
-        textDirection: pw.TextDirection.rtl,
-        theme: regular != null
-            ? pw.ThemeData.withFont(
-                base: regular,
-                bold: bold ?? regular,
-              )
-            : null,
-        header: (context) => _buildHeader(
-          organization: organization,
-          logo: logo,
-          title: title,
-          generatedAt: generatedAt,
-          regular: regular,
-          bold: bold,
-        ),
-        footer: (context) => pw.Container(
-          margin: const pw.EdgeInsets.only(top: 8),
-          padding: const pw.EdgeInsets.only(top: 5),
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(
-              top: pw.BorderSide(
-                color: PdfColors.grey300,
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: pw.Directionality(
-            textDirection: pw.TextDirection.ltr,
-            child: pw.Row(
-              mainAxisAlignment:
-                  pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'صفحة ${context.pageNumber} من ${context.pagesCount}',
-                  textDirection: pw.TextDirection.rtl,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-                pw.Text(
-                  organization.shortName,
-                  textDirection: pw.TextDirection.rtl,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-                pw.Text(
-                  generatedAt,
-                  textDirection: pw.TextDirection.ltr,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        build: (context) {
-          final widgets = <pw.Widget>[];
-
-          widgets.add(
-            _buildSummaryCardsGrid(
-              cards: cards,
-              regular: regular,
-              bold: bold,
-            ),
-          );
-
-          for (final section in sections) {
-            widgets.add(
-              _buildSectionTitle(
-                title: section.title,
-                note: section.note,
-                regular: regular,
-                bold: bold,
-              ),
-            );
-
-            final reordered = _reorderTable(
-              headers: section.headers,
-              rows: section.rows,
-              totalsRow: section.totalsRow,
-            );
-
-            if (reordered.headers.isNotEmpty) {
-              widgets.add(
-                _buildTable(
-                  headers: reordered.headers,
-                  rows: reordered.rows,
-                  nameColumnIndex: reordered.nameIndex,
-                  regular: regular,
-                  bold: bold,
-                ),
-              );
-            }
-
-            if (reordered.totalsRow != null) {
-              widgets.add(
-                _buildTotalsRow(
-                  totalsRow: reordered.totalsRow!,
-                  regular: regular,
-                  bold: bold,
-                ),
-              );
-            }
-          }
-
-          widgets.add(
-            _buildSignatures(
-              organization: organization,
-              regular: regular,
-              bold: bold,
-            ),
-          );
-
-          return widgets;
-        },
-      ),
-    );
-
-    final bytes = await doc.save();
-    final file = await _writeTempFile(fileName, bytes);
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      text: title,
-    );
-  }
-
-  // ============================================================
-  // لائحة مجمّعة حسب المؤسسة (مثل نموذج LISTE.pdf)، مع منع
-  // انقسام جدول أي مؤسسة بين صفحتين ما أمكن ذلك.
-  // ============================================================
-
-  Future<void> exportPdfGroupedList({
-    required String fileName,
-    required String title,
-    required List<ReportGroupedListSection> groups,
-  }) async {
-    final doc = pw.Document();
-
-    final regular = await _tryLoadFont(
-      'assets/fonts/arabic_regular.ttf',
-    );
-    final bold = await _tryLoadFont(
-      'assets/fonts/arabic_bold.ttf',
-    );
-
-    final organization = await _loadOrganizationInfo();
-    final logo = await _loadLogo();
-
-    final now = DateTime.now();
-    final generatedAt = _formatDateTime(now);
-
-    doc.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(
-          25,
-          25,
-          25,
-          30,
-        ),
-        textDirection: pw.TextDirection.rtl,
-        theme: regular != null
-            ? pw.ThemeData.withFont(
-                base: regular,
-                bold: bold ?? regular,
-              )
-            : null,
-
-        // ========================================================
-        // الترويسة العمودية الخاصة فقط بلائحة المنتسبين
-        // ========================================================
-        header: (context) => _buildVerticalHeader(
-          organization: organization,
-          logo: logo,
-          title: title,
-          generatedAt: generatedAt,
-          regular: regular,
-          bold: bold,
-        ),
-
-        footer: (context) => pw.Container(
-          margin: const pw.EdgeInsets.only(top: 8),
-          padding: const pw.EdgeInsets.only(top: 5),
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(
-              top: pw.BorderSide(
-                color: PdfColors.grey300,
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: pw.Directionality(
-            textDirection: pw.TextDirection.ltr,
-            child: pw.Row(
-              mainAxisAlignment:
-                  pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'صفحة ${context.pageNumber} من ${context.pagesCount}',
-                  textDirection: pw.TextDirection.rtl,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-                pw.Text(
-                  organization.shortName,
-                  textDirection: pw.TextDirection.rtl,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-                pw.Text(
-                  generatedAt,
-                  textDirection: pw.TextDirection.ltr,
-                  style: pw.TextStyle(
-                    font: regular,
-                    fontSize: 8,
-                    color: PdfColors.grey700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        build: (context) {
-          final widgets = <pw.Widget>[];
-
-          for (final group in groups) {
-            final headers = [
-              'ملاحظات',
-              'الهاتف',
-              'رقم البطاقة',
-              'الدليل المالي',
-              'الاسم',
-              '#',
-            ];
-
-            final tableRows = <List<String>>[];
-
-            for (var i = 0; i < group.rows.length; i++) {
-              final r = group.rows[i];
-
-              tableRows.add([
-                r['notes'] ?? '',
-                r['phone'] ?? '',
-                r['cardNo'] ?? '',
-                r['guide'] ?? '',
-                r['name'] ?? '',
-                '${i + 1}',
-              ]);
-            }
-
-            final groupHeader = _buildGroupHeader(
-              title: group.groupTitle,
-              count: group.rows.length,
-              regular: regular,
-              bold: bold,
-            );
-
-            final table = _buildTable(
-              headers: headers,
-              rows: tableRows,
-              nameColumnIndex: 4,
-              regular: regular,
-              bold: bold,
-            );
-
-            // ملاحظة: كان يُستخدم سابقًا تغليف الرأس والجدول داخل
-            // pw.Column واحد لمنع انقسام جدول أي مؤسسة بين
-            // صفحتين. لكن هذا التغليف "الذرّي" كان يتسبب أحيانًا
-            // في ظهور صفحة فارغة كاملة: عندما لا تتسع الكتلة فيما
-            // تبقى من الصفحة الحالية، تُدفع بأكملها إلى الصفحة
-            // التالية، وأحيانًا يُخطئ محرك pdf في إعادة حساب
-            // المساحة على الصفحة الجديدة فيدفعها مرة أخرى، تاركًا
-            // صفحة فارغة تمامًا خلفها (بلا رأس مجموعة ولا جدول).
-            //
-            // لتفادي هذا الخلل نهائيًا: لا نُغلّف بعد الآن، ونضيف
-            // الرأس والجدول كعنصرين منفصلين. الجدول (pw.Table) قد
-            // ينقسم بين صفحتين إن لزم الأمر، وهذا أهون بكثير من
-            // صفحة فارغة كاملة في التقرير.
-            widgets.add(groupHeader);
-            widgets.add(table);
-            widgets.add(pw.SizedBox(height: 10));
-          }
-
-          widgets.add(
-            _buildSignatures(
-              organization: organization,
-              regular: regular,
-              bold: bold,
-            ),
-          );
-
-          return widgets;
-        },
-      ),
-    );
-
-    final bytes = await doc.save();
-    final file = await _writeTempFile(fileName, bytes);
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      text: title,
-    );
   }
 }
 
 // =================================================================
-// بيانات المنظمة
+// نماذج البيانات
 // =================================================================
 
 class _OrganizationInfo {
@@ -1562,67 +649,6 @@ class _OrganizationInfo {
     this.regionalCaptain,
   });
 }
-
-// =================================================================
-// نتيجة إعادة ترتيب الجدول
-// =================================================================
-
-class _ReorderedTable {
-  final List<String> headers;
-  final List<List<String>> rows;
-  final List<String>? totalsRow;
-  final int nameIndex;
-
-  const _ReorderedTable({
-    required this.headers,
-    required this.rows,
-    required this.totalsRow,
-    required this.nameIndex,
-  });
-}
-
-// =================================================================
-// بطاقة ملخص واحدة — تُستخدم في exportPdfReport
-// =================================================================
-
-class ReportSummaryCard {
-  final String title;
-  final String value;
-  final String? subtitle;
-  final PdfColor? accentColor;
-
-  const ReportSummaryCard({
-    required this.title,
-    required this.value,
-    this.subtitle,
-    this.accentColor,
-  });
-}
-
-// =================================================================
-// قسم جدولي واحد ضمن تقرير متعدد الأقسام
-// =================================================================
-
-class ReportTableSection {
-  final String title;
-  final String? note;
-  final List<String> headers;
-  final List<List<String>> rows;
-  final List<String>? totalsRow;
-
-  const ReportTableSection({
-    required this.title,
-    this.note,
-    required this.headers,
-    required this.rows,
-    this.totalsRow,
-  });
-}
-
-// =================================================================
-// قسم واحد ضمن لائحة مجمّعة حسب المؤسسة (اسم المؤسسة + صفوف
-// المنتسبين كخرائط بمفاتيح: name, guide, cardNo, phone, notes)
-// =================================================================
 
 class ReportGroupedListSection {
   final String groupTitle;
