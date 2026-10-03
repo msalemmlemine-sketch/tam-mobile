@@ -242,6 +242,7 @@ class ExportService {
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
+              // اليمين: الشعار واسم المنظمة على سطر واحد
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
@@ -264,6 +265,7 @@ class ExportService {
                   ),
                 ],
               ),
+              // اليسار: تاريخ الإصدار
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
@@ -290,6 +292,7 @@ class ExportService {
             ],
           ),
           pw.SizedBox(height: 10),
+          // عنوان التقرير في المنتصف
           pw.Container(
             width: double.infinity,
             padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 12),
@@ -442,15 +445,15 @@ class ExportService {
     final now = DateTime.now();
     final generatedAt = _formatDateTime(now);
 
-    // مكتبة pdf ترسم أعمدة TableHelper من اليسار إلى اليمين:
+    // ترتيب عروض الأعمدة من اليسار إلى اليمين:
     // 0 (يسار): ملاحظات | 1: الهاتف | 2: رقم البطاقة | 3: الدليل المالي | 4: الاسم | 5 (يمين): #
     final columnWidths = <int, pw.TableColumnWidth>{
       0: const pw.FlexColumnWidth(1.4),       // ملاحظات (أقصى اليسار)
       1: const pw.FixedColumnWidth(74),       // الهاتف
       2: const pw.FixedColumnWidth(58),       // رقم البطاقة
       3: const pw.FixedColumnWidth(68),       // الدليل المالي
-      4: const pw.FlexColumnWidth(5.0),       // الاسم (المساحة الكبرى)
-      5: const pw.FixedColumnWidth(24),       // # (أقصى اليمين)
+      4: const pw.FlexColumnWidth(5.0),       // الاسم (الأعرض لتفادي كسر النصوص)
+      5: const pw.FixedColumnWidth(26),       // # (أقصى اليمين)
     };
 
     doc.addPage(
@@ -477,7 +480,8 @@ class ExportService {
         build: (context) {
           final widgets = <pw.Widget>[];
 
-          // ترتيب ترويسة الأعمدة من اليسار إلى اليمين لتظهر صحيحة على الصفحة:
+          // ترتيب ترويسة الأعمدة مقلوبة من اليسار إلى اليمين
+          // لتظهر في ورقة الطباعة: # في اليمين ... ملاحظات في اليسار
           final headers = [
             'ملاحظات',
             'الهاتف',
@@ -502,7 +506,9 @@ class ExportService {
               ]);
             }
 
-            // ترويسة المجموعة: اسم المؤسسة في اليمين وعدد المنتسبين في اليسار
+            // ترويسة المجموعة:
+            // وضع شارة المنتسبين أولاً واسم المؤسسة ثانياً
+            // ليظهر اسم المؤسسة في أقصى اليمين والشارة في أقصى اليسار
             final groupBar = pw.Container(
               padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 10),
               decoration: const pw.BoxDecoration(
@@ -512,39 +518,38 @@ class ExportService {
                   topRight: pw.Radius.circular(4),
                 ),
               ),
-              child: pw.Directionality(
-                textDirection: pw.TextDirection.rtl,
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    pw.Text(
-                      group.groupTitle,
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.white,
+                      borderRadius: pw.BorderRadius.circular(10),
+                    ),
+                    child: pw.Text(
+                      '${group.rows.length} منتسب',
+                      textDirection: pw.TextDirection.rtl,
                       style: pw.TextStyle(
                         font: bold ?? regular,
-                        fontSize: 9.5,
+                        fontSize: 7.5,
                         fontWeight: pw.FontWeight.bold,
-                        color: PdfColors.white,
+                        color: primaryColor,
                       ),
                     ),
-                    pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: pw.BoxDecoration(
-                        color: PdfColors.white,
-                        borderRadius: pw.BorderRadius.circular(10),
-                      ),
-                      child: pw.Text(
-                        '${group.rows.length} منتسب',
-                        style: pw.TextStyle(
-                          font: bold ?? regular,
-                          fontSize: 7.5,
-                          fontWeight: pw.FontWeight.bold,
-                          color: primaryColor,
-                        ),
-                      ),
+                  ),
+                  pw.Text(
+                    group.groupTitle,
+                    textDirection: pw.TextDirection.rtl,
+                    style: pw.TextStyle(
+                      font: bold ?? regular,
+                      fontSize: 9.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.white,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             );
 
@@ -866,8 +871,6 @@ class ExportService {
       );
     }
 
-    // الترتيب: جعل بقية الأعمدة أولاً ثم الاسم في النهاية
-    // لكي يظهر الاسم على أقصى اليمين هندسياً في الجداول العامة
     final indexes = <int>[
       for (var i = 0; i < headers.length; i++)
         if (i != nameIndex) i,
