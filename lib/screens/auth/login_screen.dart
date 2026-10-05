@@ -1,138 +1,225 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io';
 
-import '../../services/auth_service.dart';
-import '../root_shell.dart';
-import 'change_password_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
+import '../models/app_role.dart';
+import '../core/database/app_database.dart';
+import '../repositories/user_repository.dart';
+import 'cloud_config.dart';
+import 'permission_service.dart';
+import 'secure_kv_store.dart';
+import 'supabase_service.dart';
+import 'cloud_realtime_sync.dart';
+import 'cloud_sync_engine.dart';
 
-class _LoginScreenState extends State<LoginScreen> {
-  final _auth = AuthService();
-  final _usernameCtrl = TextEditingController(text: 'admin');
-  final _passwordCtrl = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  bool _loading = false;
-  bool _obscure = true;
-  String? _error;
-  // رسالة تشخيصية تقنية مؤقتة — تُزال بعد حل مشكلة تسجيل الدخول.
-  String? _debugError;
+enum LoginResult { success, wrongPassword, locked, mustChangePassword }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() { _loading = true; _error = null; _debugError = null; });
-    final outcome = await _auth.login(_usernameCtrl.text.trim(), _passwordCtrl.text);
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _debugError = _auth.lastError;
-    });
-    switch (outcome.result) {
-      case LoginResult.success:
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const RootShell()));
-        break;
-      case LoginResult.mustChangePassword:
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => ChangePasswordScreen(userId: outcome.user!.id)));
-        break;
-      case LoginResult.wrongPassword:
-        setState(() => _error = 'اسم المستخدم أو كلمة المرور غير صحيحة');
-        break;
-      case LoginResult.locked:
-        setState(() => _error = 'تم قفل الحساب مؤقتًا بسبب محاولات فاشلة متكررة — حاول لاحقًا');
-        break;
-    }
+class AuthService {
+  AuthService({UserRepository? userRepository, SecureKvStore? storage})
+      : _users = userRepository ?? UserRepository(),
+        _storage = storage ?? FlutterSecureKvStore();
+
+  final UserRepository _users;
+  final SecureKvStore _storage;
+  static const _sessionKey = 'tam_session_user_id';
+  static const _lastActivityKey = 'tam_last_activity';
+
+  String? lastError;
+
+  String _emailForUsername(String value) {
+    final v = value.trim().toLowerCase();
+    return v.contains('@') ? v : '$v@tam.local';
   }
 
-  @override
-  void dispose() { _usernameCtrl.dispose(); _passwordCtrl.dispose(); super.dispose(); }
+  bool _isNetworkFailure(Object e) {
+    if (e is AuthRetryableFetchException) return true;
+    if (e is SocketException) return true;
+    if (e is TimeoutException) return true;
+    if (e is HttpException) return true;
+    final text = e.toString().toLowerCase();
+    return text.contains('socketexception') ||
+        text.contains('failed host lookup') ||
+        text.contains('network is unreachable') ||
+        text.contains('connection refused') ||
+        text.contains('connection timed out') ||
+        text.contains('timeoutexception') ||
+        text.contains('clientexception');
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                children: [
-                  Container(
-                    width: 100,
-                    height: 100,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: scheme.primaryContainer, shape: BoxShape.circle),
-                    child: ClipOval(child: Image.asset('assets/icon.png', fit: BoxFit.cover)),
-                  ),
-                  const SizedBox(height: 20),
-                  Text('سجل تحالف أساتذة موريتانيا', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 6),
-                  Text('إدارة المنتسبين والاشتراكات والصندوق', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
-                  const SizedBox(height: 28),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            TextFormField(
-                              controller: _usernameCtrl,
-                              textDirection: TextDirection.ltr,
-                              decoration: const InputDecoration(labelText: 'اسم المستخدم أو الدليل المالي', prefixIcon: Icon(Icons.person_outline)),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'أدخل اسم المستخدم' : null,
-                            ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _passwordCtrl,
-                              obscureText: _obscure,
-                              textDirection: TextDirection.ltr,
-                              decoration: InputDecoration(labelText: 'كلمة المرور', prefixIcon: const Icon(Icons.lock_outline), suffixIcon: IconButton(onPressed: () => setState(() => _obscure = !_obscure), icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined))),
-                              validator: (v) => v == null || v.isEmpty ? 'أدخل كلمة المرور' : null,
-                              onFieldSubmitted: (_) => _submit(),
-                            ),
-                            if (_error != null) ...[
-                              const SizedBox(height: 14),
-                              Container(width: double.infinity, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: scheme.errorContainer, borderRadius: BorderRadius.circular(14)), child: Text(_error!, style: TextStyle(color: scheme.onErrorContainer))),
-                            ],
-                            if (_debugError != null) ...[
-                              const SizedBox(height: 8),
-                              // تفصيل تقني مؤقت لتشخيص مشكلة الدخول — احذف
-                              // هذا الصندوق بعد التأكد من عمل الدخول بشكل صحيح.
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
-                                child: SelectableText(
-                                  'تفصيل تقني: $_debugError',
-                                  textDirection: TextDirection.ltr,
-                                  style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12, fontFamily: 'monospace'),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 20),
-                            FilledButton.icon(
-                              onPressed: _loading ? null : _submit,
-                              icon: _loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.login_rounded),
-                              label: Text(_loading ? 'جارٍ التحقق...' : 'تسجيل الدخول'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text('الحسابات والبيانات المشتركة محفوظة عبر Supabase', style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+  Future<({LoginResult result, AppUser? user})> login(
+      String username, String password) async {
+    lastError = null;
+    if (CloudConfig.enabled) {
+      try {
+        final res = await SupabaseService.client.auth.signInWithPassword(
+          email: _emailForUsername(username),
+          password: password,
+        );
+        final authUser = res.user;
+        if (authUser == null) {
+          lastError = 'Supabase لم يُرجع مستخدمًا بعد signInWithPassword (بلا استثناء).';
+          return (result: LoginResult.wrongPassword, user: null);
+        }
+        final user = await _loadCloudProfile(authUser.id);
+        if (user == null || !user.isActive) {
+          lastError = user == null
+              ? 'تم الدخول في Supabase Auth لكن لا يوجد صف مطابق في جدول profiles لهذا المستخدم (${authUser.id}).'
+              : 'الحساب موجود لكنه معطّل (is_active = false).';
+          await SupabaseService.client.auth.signOut();
+          return (result: LoginResult.locked, user: user);
+        }
+        await _storage.write(_sessionKey, user.id.toString());
+        await _touchActivity();
+        PermissionService.currentUser = user;
+        await CloudRealtimeSync.instance.start();
+        await CloudSyncEngine().sync();
+        if (user.mustChangePassword) {
+          return (result: LoginResult.mustChangePassword, user: user);
+        }
+        return (result: LoginResult.success, user: user);
+      } on AuthException catch (e) {
+        lastError = 'AuthException: ${e.message} (status: ${e.statusCode})';
+        return (result: LoginResult.wrongPassword, user: null);
+      } catch (e) {
+        if (!_isNetworkFailure(e)) {
+          lastError = '${e.runtimeType}: $e';
+          return (result: LoginResult.wrongPassword, user: null);
+        }
+        lastError = 'فشل الاتصال بالشبكة (${e.runtimeType}: $e) — المتابعة بالدخول المحلي.';
+      }
+    }
+
+    final user = await _users.getByUsername(username.trim());
+    if (user == null) {
+      lastError ??= 'لا يوجد مستخدم محلي بهذا الاسم في SQLite.';
+      return (result: LoginResult.wrongPassword, user: null);
+    }
+    if (!user.isActive) {
+      lastError = 'الحساب معطّل محليًا (is_active = false).';
+      return (result: LoginResult.locked, user: user);
+    }
+    final ok = await _users.verifyLocalPassword(user, password);
+    if (!ok) {
+      lastError = 'كلمة المرور المحلية غير مطابقة (SQLite).';
+      return (result: LoginResult.wrongPassword, user: user);
+    }
+    await _storage.write(_sessionKey, user.id.toString());
+    await _touchActivity();
+    PermissionService.currentUser = user;
+    return (
+      result: user.mustChangePassword
+          ? LoginResult.mustChangePassword
+          : LoginResult.success,
+      user: user,
     );
   }
+
+  Future<AppUser?> _loadCloudProfile(String authId) async {
+    final row = await SupabaseService.client
+        .from('profiles')
+        .select('id,username,display_name,role,member_sync_uuid,is_active,must_change_password')
+        .eq('id', authId)
+        .maybeSingle();
+    if (row == null) return null;
+
+    // member_id في السحابة UUID بينما المحلي رقم؛ نتجاهله ونربط عبر
+    // member_sync_uuid فقط (هذا كان سبب خطأ String/int?).
+    int? localMemberId;
+    final memberSync = row['member_sync_uuid'] as String?;
+    if (memberSync != null) {
+      final db = await AppDatabase.instance.database;
+      final member = await db.query('members',
+          where: 'sync_uuid = ?', whereArgs: [memberSync], limit: 1);
+      if (member.isNotEmpty) localMemberId = member.first['id'] as int;
+    }
+    return _users.cacheCloudUser(
+      cloudUserId: authId,
+      username: (row['username'] as String?) ?? authId,
+      displayName: (row['display_name'] as String?) ?? '',
+      role: AppRoleX.fromKey(row['role'] as String?),
+      memberId: localMemberId,
+      isActive: row['is_active'] as bool? ?? true,
+      mustChangePassword: row['must_change_password'] as bool? ?? false,
+    );
+  }
+
+  Future<void> changePassword(int userId, String newPassword) async {
+    if (CloudConfig.enabled) {
+      await SupabaseService.client.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+      // دالة آمنة بدل UPDATE مباشر (المنتسب لا يملك سياسة UPDATE).
+      await SupabaseService.client.rpc('clear_must_change_password');
+      await _users.clearMustChangePassword(userId);
+      final u = PermissionService.currentUser;
+      if (u != null) {
+        PermissionService.currentUser = AppUser(
+          id: u.id, username: u.username, passwordHash: u.passwordHash,
+          passwordSalt: u.passwordSalt, displayName: u.displayName, role: u.role,
+          mustChangePassword: false, failedAttempts: u.failedAttempts,
+          lockedUntil: u.lockedUntil, memberId: u.memberId,
+          cloudUserId: u.cloudUserId, isActive: u.isActive,
+        );
+      }
+      return;
+    }
+    await _users.updateLocalPassword(userId, newPassword);
+  }
+
+  Future<void> logout() async {
+    if (CloudConfig.enabled && SupabaseService.session != null) {
+      try {
+        await SupabaseService.client.auth.signOut();
+      } catch (_) {}
+    }
+    PermissionService.currentUser = null;
+    await _storage.delete(_sessionKey);
+    await _storage.delete(_lastActivityKey);
+  }
+
+  Future<AppUser?> _cachedUser() async {
+    final id = await _storage.read(_sessionKey);
+    final userId = int.tryParse(id ?? '');
+    if (userId == null) return null;
+    final user = await _users.getById(userId);
+    PermissionService.currentUser = user;
+    return user;
+  }
+
+  Future<AppUser?> currentUser() async {
+    if (CloudConfig.enabled) {
+      final authUser = SupabaseService.user;
+      if (authUser != null) {
+        try {
+          final user = await _loadCloudProfile(authUser.id);
+          PermissionService.currentUser = user;
+          return user;
+        } catch (_) {}
+      }
+      return _cachedUser();
+    }
+    return _cachedUser();
+  }
+
+  Future<bool> hasActiveSession() async {
+    if (CloudConfig.enabled) {
+      if (SupabaseService.session != null) return true;
+      return (await _storage.read(_sessionKey)) != null;
+    }
+    return (await _storage.read(_sessionKey)) != null;
+  }
+
+  Future<void> _touchActivity() async =>
+      _storage.write(_lastActivityKey, DateTime.now().toIso8601String());
+
+  Future<bool> isSessionExpired({int idleMinutes = 15}) async {
+    final lastActivity = await _storage.read(_lastActivityKey);
+    if (lastActivity == null) return false;
+    final last = DateTime.tryParse(lastActivity);
+    if (last == null) return false;
+    return DateTime.now().difference(last) > Duration(minutes: idleMinutes);
+  }
+
+  Future<void> refreshActivity() => _touchActivity();
 }
