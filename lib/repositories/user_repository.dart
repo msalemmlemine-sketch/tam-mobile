@@ -3,9 +3,11 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/database/app_database.dart';
 import '../models/app_role.dart';
+import '../services/cloud_config.dart';
 
 class AppUser {
   final int id;
@@ -65,18 +67,52 @@ class UserRepository {
 
   Future<AppUser?> getById(int id) async {
     final db = await _db;
-    final rows = await db.query('users', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows =
+        await db.query('users', where: 'id = ?', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return AppUser.fromMap(rows.first);
   }
 
   /// كل الحسابات — تُستخدم من شاشة إدارة الحسابات (المدير فقط).
-  /// مرتّبة بحيث تظهر الحسابات الإدارية أولًا ثم حسابات المنتسبين،
-  /// وداخل كل مجموعة أبجديًا حسب اسم العرض.
+  /// الحسابات الإدارية أولًا ثم المنتسبون، وأبجديًا داخل كل مجموعة.
   Future<List<AppUser>> getAll() async {
     final db = await _db;
-    final rows = await db.query('users', orderBy: 'role = "member" ASC, display_name COLLATE NOCASE ASC');
+    final rows = await db.query('users',
+        orderBy: 'role = "member" ASC, display_name COLLATE NOCASE ASC');
     return rows.map(AppUser.fromMap).toList();
+  }
+
+  /// يجلب كل الحسابات من Supabase (للأدمن فقط بفضل السياسة
+  /// profiles_select_admin) ويخزّنها محليًا لتظهر في شاشة الحسابات.
+  Future<void> syncProfilesFromCloud() async {
+    if (!CloudConfig.enabled) return;
+    final rows = await Supabase.instance.client.from('profiles').select(
+        'id,username,display_name,role,member_sync_uuid,is_active,must_change_password');
+    final db = await _db;
+    for (final r in rows) {
+      final username = r['username'] as String?;
+      if (username == null || username.isEmpty) continue;
+      int? localMemberId;
+      final memberSync = r['member_sync_uuid'] as String?;
+      if (memberSync != null) {
+        final m = await db.query('members',
+            where: 'sync_uuid = ?', whereArgs: [memberSync], limit: 1);
+        if (m.isNotEmpty) localMemberId = m.first['id'] as int;
+      }
+      try {
+        await cacheCloudUser(
+          cloudUserId: r['id'] as String,
+          username: username,
+          displayName: (r['display_name'] as String?) ?? username,
+          role: AppRoleX.fromKey(r['role'] as String?),
+          memberId: localMemberId,
+          isActive: r['is_active'] as bool? ?? true,
+          mustChangePassword: r['must_change_password'] as bool? ?? false,
+        );
+      } catch (_) {
+        // صف واحد معطوب لا يوقف بقية المزامنة.
+      }
+    }
   }
 
   Future<void> recordFailedAttempt(int userId, int attempts,
@@ -111,16 +147,21 @@ class UserRepository {
       {
         'password_hash': passwordHash,
         'password_salt': passwordSalt,
-        'must_change_password': 1,
+        'must_change_password': 0,
       },
       where: 'id = ?',
       whereArgs: [userId],
     );
   }
 
+  Future<void> clearMustChangePassword(int userId) async {
+    final db = await _db;
+    await db.update('users', {'must_change_password': 0},
+        where: 'id = ?', whereArgs: [userId]);
+  }
+
   Future<bool> verifyLocalPassword(AppUser user, String password) async {
-    final salt = user.passwordSalt;
-    final hash = _hash(password, salt);
+    final hash = _hash(password, user.passwordSalt);
     return hash == user.passwordHash;
   }
 
@@ -133,45 +174,50 @@ class UserRepository {
     );
   }
 
-  /// تفعيل أو تعطيل حساب — الوسيلة المعتمدة لـ"حذف" حساب بدل الحذف
-  /// الفعلي في وضع السحابة (انظر شرح Option B في المحادثة مع المدير:
-  /// تعطيل فوري وشامل على كل جهاز جديد أو متصل بالإنترنت).
+  /// تفعيل/تعطيل حساب: يُكتب في السحابة أولًا ثم محليًا.
   Future<void> setActive(int userId, bool isActive) async {
+    final u = await getById(userId);
+    if (CloudConfig.enabled && u?.cloudUserId != null) {
+      final res = await Supabase.instance.client
+          .from('profiles')
+          .update({'is_active': isActive})
+          .eq('id', u!.cloudUserId!)
+          .select();
+      if (res.isEmpty) {
+        throw Exception('رفضت السحابة التعديل (تحقق من صلاحية الأدمن).');
+      }
+    }
     final db = await _db;
-    await db.update(
-      'users',
-      {'is_active': isActive ? 1 : 0},
-      where: 'id = ?',
-      whereArgs: [userId],
-    );
+    await db.update('users', {'is_active': isActive ? 1 : 0},
+        where: 'id = ?', whereArgs: [userId]);
   }
 
+  /// تغيير الدور: يُكتب في السحابة أولًا، وإن رفضته يُرمى استثناء
+  /// فلا يبدو التغيير ناجحًا محليًا فقط.
   Future<void> updateRole(int userId, AppRole role) async {
+    final u = await getById(userId);
+    if (CloudConfig.enabled && u?.cloudUserId != null) {
+      final res = await Supabase.instance.client
+          .from('profiles')
+          .update({'role': role.key})
+          .eq('id', u!.cloudUserId!)
+          .select();
+      if (res.isEmpty) {
+        throw Exception('رفضت السحابة التعديل (تحقق من صلاحية الأدمن).');
+      }
+    }
     final db = await _db;
-    await db.update(
-      'users',
-      {'role': role.key},
-      where: 'id = ?',
-      whereArgs: [userId],
-    );
+    await db.update('users', {'role': role.key},
+        where: 'id = ?', whereArgs: [userId]);
   }
 
-  /// حذف فعلي للحساب المحلي فقط. لا يُستخدم مطلقًا في وضع السحابة
-  /// (CloudConfig.enabled) لأن صف users المحلي هناك هو نسخة مخزَّنة
-  /// مؤقتًا (cache) لحساب Supabase الحقيقي — حذفها محليًا لا يحذف
-  /// الحساب الفعلي في Supabase، فقط يُفقد الجهاز نسخته المحلية
-  /// المخزَّنة، ما قد يُربك تسجيل الدخول التالي. استخدم setActive
-  /// بدلًا منه في وضع السحابة.
+  /// حذف فعلي للحساب المحلي فقط. لا يُستخدم في وضع السحابة؛
+  /// استخدم setActive بدلًا منه.
   Future<void> deleteLocalUser(int userId) async {
     final db = await _db;
     await db.delete('users', where: 'id = ?', whereArgs: [userId]);
   }
 
-  /// إنشاء حساب محلي جديد يدويًا من شاشة إدارة الحسابات (مثلاً حساب
-  /// إداري إضافي، أو حساب منتسب بكلمة مرور يحددها المدير بنفسه بدل
-  /// الآلية التلقائية الاعتيادية القائمة على رقم الهاتف).
-  /// يرمي استثناءً عند تكرار اسم المستخدم (قيد UNIQUE) — على الواجهة
-  /// عرضه برسالة مفهومة بدل تركه يظهر كخطأ تقني خام.
   Future<AppUser> createLocalUser({
     required String username,
     required String password,
@@ -197,14 +243,8 @@ class UserRepository {
     return (await getById(id))!;
   }
 
-  /// يُنشئ أو يُحدِّث نسخة محلية (SQLite) لمستخدم مُصادَق عليه عبر
-  /// Supabase. البحث عن الصف الموجود يتم بترتيب:
-  /// 1) بـ cloud_user_id إن كان مربوطًا مسبقًا (الحالة العادية بعد
-  ///    أول دخول ناجح).
-  /// 2) وإلا بـ username — يغطي حالة وجود حساب محلي قديم بنفس الاسم
-  ///    أُنشئ قبل تفعيل السحابة (مثل حسابات _seedRoleUsers/admin
-  ///    الافتراضية)، فيُربَط الآن بـ cloud_user_id بدل محاولة إدراج
-  ///    صف مكرر يفشل بخطأ UNIQUE على username.
+  /// يُنشئ أو يُحدِّث نسخة محلية لمستخدم مُصادَق عليه عبر Supabase.
+  /// البحث بـ cloud_user_id أولًا ثم بـ username.
   Future<AppUser> cacheCloudUser({
     required String cloudUserId,
     required String username,
@@ -254,7 +294,7 @@ class UserRepository {
       'display_name': displayName,
       'role': role.key,
       'must_change_password': mustChangePassword ? 1 : 0,
-      'member_id': memberId,
+      'member_id': memberId ?? existing.first['member_id'],
       'cloud_user_id': cloudUserId,
       'is_active': isActive ? 1 : 0,
     }, where: 'id = ?', whereArgs: [id]);
@@ -263,7 +303,8 @@ class UserRepository {
 
   Future<AppUser?> getByMemberId(int memberId) async {
     final db = await _db;
-    final rows = await db.query('users', where: 'member_id = ?', whereArgs: [memberId], limit: 1);
+    final rows = await db.query('users',
+        where: 'member_id = ?', whereArgs: [memberId], limit: 1);
     if (rows.isEmpty) return null;
     return AppUser.fromMap(rows.first);
   }
@@ -277,18 +318,9 @@ class UserRepository {
     return base64UrlEncode(bytes);
   }
 
-  /// يضمن وجود حساب دخول ذاتي للمنتسب — يُستدعى تلقائيًا عند إضافة
-  /// منتسب أو تعديله (من MemberRepository)، وليس عملية يدوية.
-  ///
-  /// - عند الإنشاء الأول: اسم المستخدم = الدليل المالي، كلمة المرور =
-  ///   رقم الهاتف (مُجزّأة بنفس آلية AuthService)، والدور "منتسب".
-  /// - عند أي استدعاء لاحق: يُحدَّث اسم المستخدم فقط إن تغيّر الدليل
-  ///   المالي — لا تُلمَس كلمة المرور مطلقًا حتى لا نُلغي تغييرًا
-  ///   يدويًا قام به المنتسب لاحقًا عبر "تغيير كلمة المرور".
-  /// - إن كان الدليل المالي أو الهاتف فارغَين عند الإنشاء الأول، لا
-  ///   يُنشأ حساب حتى تتوفر البيانات لاحقًا.
-  /// - أي تعارض (دليل مالي مكرر بالخطأ بين منتسبَين) يُتجاهل بصمت
-  ///   حتى لا يمنع حفظ بيانات المنتسب نفسها.
+  /// يضمن وجود حساب دخول ذاتي للمنتسب (اسم المستخدم = الدليل المالي،
+  /// كلمة المرور الأولى = الهاتف، الدور member). لا يلمس كلمة المرور
+  /// عند الاستدعاءات اللاحقة.
   Future<void> ensureMemberAccount({
     required int memberId,
     required String displayName,
@@ -316,7 +348,8 @@ class UserRepository {
           'member_id': memberId,
           'created_at': DateTime.now().toIso8601String(),
         });
-      } else if (existing.username != cleanGuide || existing.displayName != displayName) {
+      } else if (existing.username != cleanGuide ||
+          existing.displayName != displayName) {
         await db.update(
           'users',
           {'username': cleanGuide, 'display_name': displayName},
@@ -325,7 +358,7 @@ class UserRepository {
         );
       }
     } catch (_) {
-      // تعارض اسم مستخدم أو أي خطأ غير متوقع — لا يجب أن يمنع حفظ المنتسب.
+      // تعارض اسم مستخدم أو خطأ غير متوقع: لا يمنع حفظ المنتسب.
     }
   }
 }
